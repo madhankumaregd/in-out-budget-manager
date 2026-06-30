@@ -11,14 +11,33 @@ import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
 import Navigation from "./components/Navigation";
+import Onboarding from "./pages/Onboarding";
 
 const PrivateRoute = ({ children }) => {
-  const { currentUser } = useAuth();
-  return currentUser ? children : <Navigate to="/login" />;
+  const { currentUser, userProfile, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" />;
+  }
+
+  // Force onboarding if email is not verified or phone is missing
+  if (currentUser && (!currentUser.emailVerified || !userProfile?.phone)) {
+    return <Navigate to="/onboarding" />;
+  }
+
+  return children;
 };
 
 function App() {
-  const { currentUser } = useAuth();
+  const { currentUser, loading, userProfile } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+  }
 
   return (
     <Router>
@@ -48,9 +67,10 @@ function App() {
         }}
       />
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        {currentUser && <Navigation />}
+        {currentUser && userProfile?.phone && currentUser.emailVerified && <Navigation />}
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route
             path="/dashboard"
             element={

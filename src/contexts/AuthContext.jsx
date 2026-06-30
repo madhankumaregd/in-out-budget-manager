@@ -6,6 +6,12 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendEmailVerification,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  linkWithPhoneNumber,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
@@ -46,11 +52,54 @@ export const AuthProvider = ({ children }) => {
       currencySymbol: "₹",
     });
 
+    // Send email verification
+    await sendEmailVerification(userCredential.user);
+
     return userCredential;
   };
 
   const login = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const googleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    
+    // Check if user document exists, if not create it
+    const userDocRef = doc(db, "users", result.user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    
+    if (!userDocSnap.exists()) {
+      await setDoc(userDocRef, {
+        email: result.user.email,
+        displayName: result.user.displayName,
+        createdAt: new Date(),
+        currency: "INR",
+        currencySymbol: "₹",
+      });
+    }
+    return result;
+  };
+
+  const setupRecaptcha = (containerId) => {
+    // Clear old recaptcha if it exists
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+      size: "invisible",
+    });
+    return window.recaptchaVerifier;
+  };
+
+  const linkPhone = (phone, recaptchaVerifier) => {
+    return linkWithPhoneNumber(auth.currentUser, phone, recaptchaVerifier);
+  };
+
+  const sendPhoneOtp = (phone, recaptchaVerifier) => {
+    return signInWithPhoneNumber(auth, phone, recaptchaVerifier);
   };
 
   const logout = () => signOut(auth);
@@ -90,6 +139,10 @@ export const AuthProvider = ({ children }) => {
     currencySymbol,
     signup,
     login,
+    googleSignIn,
+    setupRecaptcha,
+    linkPhone,
+    sendPhoneOtp,
     logout,
     resetPassword,
     loading,

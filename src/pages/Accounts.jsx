@@ -30,6 +30,7 @@ import {
   Building,
   Phone,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -132,13 +133,18 @@ const Accounts = () => {
 
   const handleUpdateProfile = async () => {
     try {
+      if (profileForm.phone && !profileForm.phone.startsWith("+")) {
+        toast.error("Phone must include country code (e.g. +91...)");
+        return;
+      }
+
       await updateUserProfile(currentUser.uid, profileForm);
       setUserProfile(profileForm);
       setIsEditingProfile(false);
       toast.success("Profile updated successfully!");
     } catch (err) {
       console.error("Error updating profile:", err);
-      toast.error("Failed to update profile");
+      toast.error(err.message || "Failed to update profile");
     }
   };
 
@@ -256,7 +262,7 @@ const Accounts = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone (Optional)
+                  Phone (Must include country code, e.g. +91)
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -267,7 +273,7 @@ const Accounts = () => {
                       setProfileForm({ ...profileForm, phone: e.target.value })
                     }
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Enter your phone number"
+                    placeholder="+919876543210"
                   />
                 </div>
               </div>
@@ -297,8 +303,16 @@ const Accounts = () => {
                   <span>Save Changes</span>
                 </button>
                 <button
-                  onClick={() => setIsEditingProfile(false)}
-                  className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-400 transition"
+                  onClick={() => {
+                    setIsEditingProfile(false);
+                    setProfileForm({
+                      displayName: userProfile?.displayName || "",
+                      email: userProfile?.email || currentUser.email,
+                      phone: userProfile?.phone || "",
+                      currency: userProfile?.currency || "INR",
+                    });
+                  }}
+                  className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition"
                 >
                   <X className="w-4 h-4" />
                   <span>Cancel</span>
