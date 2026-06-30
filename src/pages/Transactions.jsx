@@ -6,7 +6,7 @@ import {
   deleteTransaction,
 } from "../firebase/firestoreService";
 import { format } from "date-fns";
-import { Trash2, Search, Filter, X } from "lucide-react";
+import { Trash2, Search, Filter, X, ArrowUpRight, ArrowDownRight, RefreshCw, Calendar, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ConfirmModal";
 
@@ -19,6 +19,7 @@ const Transactions = () => {
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const fetchData = async () => {
     if (!currentUser) return;
@@ -155,103 +156,113 @@ const Transactions = () => {
           )}
         </div>
 
-        {/* Filters Panel */}
-        <div className="bg-white rounded-xl shadow p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-semibold text-gray-700">Filters & Search</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Search and Filters Section */}
+        <div className="bg-white rounded-xl shadow mb-6">
+          <div className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             {/* Search */}
-            <div className="lg:col-span-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Search by Description
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search description..."
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search transactions by description..."
+                className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            
+            {/* Filter Toggle Button */}
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition whitespace-nowrap"
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {isFilterOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Expandable Filters Panel */}
+          {isFilterOpen && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Type filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Transaction Type
+                  </label>
+                  <select
+                    value={filter.type}
+                    onChange={(e) => setFilter({ ...filter, type: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                    <option value="transfer">Transfer</option>
+                  </select>
+                </div>
+
+                {/* Account filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Account
+                  </label>
+                  <select
+                    value={filter.accountId}
+                    onChange={(e) =>
+                      setFilter({ ...filter, accountId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">All Accounts</option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Start date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) =>
+                      setDateRange({ ...dateRange, start: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* End date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) =>
+                      setDateRange({ ...dateRange, end: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
             </div>
-
-            {/* Type filter */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Transaction Type
-              </label>
-              <select
-                value={filter.type}
-                onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="all">All Types</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-                <option value="transfer">Transfer</option>
-              </select>
-            </div>
-
-            {/* Account filter */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Account
-              </label>
-              <select
-                value={filter.accountId}
-                onChange={(e) =>
-                  setFilter({ ...filter, accountId: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">All Accounts</option>
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Start date */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, start: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            {/* End date */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, end: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-white rounded-xl shadow overflow-x-auto">
-          <table className="min-w-full">
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
+            <table className="min-w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -350,7 +361,64 @@ const Transactions = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {filteredTransactions.map((t) => (
+              <div key={t.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${
+                      t.type === "income" ? "bg-green-100 text-green-600" :
+                      t.type === "expense" ? "bg-red-100 text-red-600" :
+                      "bg-blue-100 text-blue-600"
+                    }`}>
+                      {t.type === "income" ? <ArrowUpRight className="w-5 h-5" /> : 
+                       t.type === "expense" ? <ArrowDownRight className="w-5 h-5" /> : 
+                       <RefreshCw className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{t.category || "Transfer"}</p>
+                      <p className="text-xs text-gray-500 line-clamp-1">{t.description || (t.type === 'transfer' ? `To ${getAccountName(t.toAccountId)}` : "No description")}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-bold ${
+                      t.type === "income" ? "text-green-600" :
+                      t.type === "expense" ? "text-red-600" :
+                      "text-blue-600"
+                    }`}>
+                      {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}
+                      {currencySymbol}
+                      {t.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-xs text-gray-400 font-medium">{getAccountName(t.fromAccountId)}</p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50">
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {format(new Date(t.date), "MMM dd, yyyy")}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {t.createdAt?.toDate ? format(t.createdAt.toDate(), "hh:mm a") : t.date ? format(new Date(t.date), "hh:mm a") : "—"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPendingDeleteId(t.id)}
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {filteredTransactions.length === 0 && (
             <div className="text-center py-16 text-gray-400">

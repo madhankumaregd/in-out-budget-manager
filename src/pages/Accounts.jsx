@@ -51,6 +51,15 @@ const Accounts = () => {
     currency: "INR",
   });
 
+  const formatYAxis = (value) => {
+    const locale = currencySymbol === '₹' ? 'en-IN' : 'en-US';
+    return new Intl.NumberFormat(locale, {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1
+    }).format(value);
+  };
+
   useEffect(() => {
     if (!currentUser) return;
 
@@ -225,7 +234,7 @@ const Accounts = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -294,7 +303,7 @@ const Accounts = () => {
                   <option value="GBP">British Pound (£)</option>
                 </select>
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 md:col-span-2">
                 <button
                   onClick={handleUpdateProfile}
                   className="bg-green-600 text-white px-6 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition"
@@ -522,7 +531,11 @@ const Accounts = () => {
                                     format(new Date(date), "MM/dd")
                                   }
                                 />
-                                <YAxis />
+                                <YAxis 
+                                  tickFormatter={formatYAxis} 
+                                  width={60}
+                                  tick={{ fontSize: 12 }}
+                                />
                                 <Tooltip
                                   labelFormatter={(date) =>
                                     format(new Date(date), "MMM dd, yyyy")

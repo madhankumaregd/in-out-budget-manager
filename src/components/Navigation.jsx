@@ -10,6 +10,8 @@ import {
   User,
   ChevronDown,
   Settings,
+  Menu,
+  X,
 } from "lucide-react";
 
 const Navigation = () => {
@@ -17,6 +19,7 @@ const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const navItems = [
@@ -74,7 +77,7 @@ const Navigation = () => {
               </h1>
             </motion.div>
 
-            <div className="flex space-x-2">
+            <div className="hidden md:flex space-x-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -98,8 +101,9 @@ const Navigation = () => {
             </div>
           </div>
 
-          <div className="relative" ref={dropdownRef}>
-            <motion.button
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <div className="relative" ref={dropdownRef}>
+              <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -160,8 +164,54 @@ const Navigation = () => {
               )}
             </AnimatePresence>
           </div>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
         </div>
       </div>
+    </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden border-t border-gray-100 bg-white"
+          >
+            <div className="px-4 py-3 space-y-2 shadow-inner">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link key={item.path} to={item.path} onClick={() => setIsMobileMenuOpen(false)}>
+                    <div
+                      className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                        isActive
+                          ? "bg-indigo-50 text-indigo-600 font-semibold"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600" : "text-gray-400"}`} />
+                      <span>{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };

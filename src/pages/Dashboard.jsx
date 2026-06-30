@@ -190,9 +190,9 @@ const Dashboard = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 md:mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-800">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
             Welcome back, <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               {userProfile?.displayName || 'User'}!
             </span>
@@ -209,14 +209,14 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setDetailMode("accounts")}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
+            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-5 md:p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
-            <div className="flex items-center justify-between mb-4">
-              <Wallet className="w-8 h-8 opacity-80" />
-              <span className="text-sm opacity-80">Total Balance</span>
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <Wallet className="w-6 h-6 md:w-8 md:h-8 opacity-80" />
+              <span className="text-xs md:text-sm opacity-80">Total Balance</span>
             </div>
-            <p className="text-3xl font-bold">{currencySymbol}{totalBalance.toLocaleString('en-IN')}</p>
-            <p className="text-sm opacity-80 mt-2">Across {accounts.length} accounts</p>
+            <p className="text-2xl md:text-3xl font-bold">{currencySymbol}{totalBalance.toLocaleString('en-IN')}</p>
+            <p className="text-xs md:text-sm opacity-80 mt-1 md:mt-2">Across {accounts.length} accounts</p>
           </motion.div>
 
           <motion.div
@@ -226,14 +226,14 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setDetailMode("income")}
-            className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
+            className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-5 md:p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
-            <div className="flex items-center justify-between mb-4">
-              <TrendingUp className="w-8 h-8 opacity-80" />
-              <span className="text-sm opacity-80">Income (30 days)</span>
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <TrendingUp className="w-6 h-6 md:w-8 md:h-8 opacity-80" />
+              <span className="text-xs md:text-sm opacity-80">Income (30d)</span>
             </div>
-            <p className="text-3xl font-bold">+{currencySymbol}{totalIncome.toLocaleString('en-IN')}</p>
-            <p className="text-sm opacity-80 mt-2">From {recentTransactions.filter(t => t.type === 'income').length} transactions</p>
+            <p className="text-2xl md:text-3xl font-bold">+{currencySymbol}{totalIncome.toLocaleString('en-IN')}</p>
+            <p className="text-xs md:text-sm opacity-80 mt-1 md:mt-2">From {recentTransactions.filter(t => t.type === 'income').length} transactions</p>
           </motion.div>
 
           <motion.div
@@ -243,14 +243,14 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setDetailMode("expense")}
-            className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
+            className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-5 md:p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
-            <div className="flex items-center justify-between mb-4">
-              <TrendingDown className="w-8 h-8 opacity-80" />
-              <span className="text-sm opacity-80">Expense (30 days)</span>
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <TrendingDown className="w-6 h-6 md:w-8 md:h-8 opacity-80" />
+              <span className="text-xs md:text-sm opacity-80">Expense (30d)</span>
             </div>
-            <p className="text-3xl font-bold">-{currencySymbol}{totalExpense.toLocaleString('en-IN')}</p>
-            <p className="text-sm opacity-80 mt-2">From {recentTransactions.filter(t => t.type === 'expense').length} transactions</p>
+            <p className="text-2xl md:text-3xl font-bold">-{currencySymbol}{totalExpense.toLocaleString('en-IN')}</p>
+            <p className="text-xs md:text-sm opacity-80 mt-1 md:mt-2">From {recentTransactions.filter(t => t.type === 'expense').length} transactions</p>
           </motion.div>
         </div>
 
@@ -259,36 +259,36 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          className="grid grid-cols-3 gap-3 md:gap-4 mb-8"
         >
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowAddIncome(true)}
-            className="bg-white rounded-xl shadow-md p-4 flex items-center justify-center space-x-2 hover:shadow-lg transition-all"
+            className="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col md:flex-row items-center justify-center space-y-1 md:space-y-0 md:space-x-2 hover:shadow-lg transition-all"
           >
             <ArrowUpCircle className="w-6 h-6 text-green-600" />
-            <span className="font-semibold text-gray-700">Add Income</span>
+            <span className="text-xs md:text-base font-semibold text-gray-700">Income</span>
           </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowAddExpense(true)}
-            className="bg-white rounded-xl shadow-md p-4 flex items-center justify-center space-x-2 hover:shadow-lg transition-all"
+            className="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col md:flex-row items-center justify-center space-y-1 md:space-y-0 md:space-x-2 hover:shadow-lg transition-all"
           >
             <ArrowDownCircle className="w-6 h-6 text-red-600" />
-            <span className="font-semibold text-gray-700">Add Expense</span>
+            <span className="text-xs md:text-base font-semibold text-gray-700">Expense</span>
           </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowTransfer(true)}
-            className="bg-white rounded-xl shadow-md p-4 flex items-center justify-center space-x-2 hover:shadow-lg transition-all"
+            className="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col md:flex-row items-center justify-center space-y-1 md:space-y-0 md:space-x-2 hover:shadow-lg transition-all"
           >
             <RefreshCw className="w-6 h-6 text-blue-600" />
-            <span className="font-semibold text-gray-700">Transfer</span>
+            <span className="text-xs md:text-base font-semibold text-gray-700">Transfer</span>
           </motion.button>
         </motion.div>
 
