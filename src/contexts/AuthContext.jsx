@@ -12,6 +12,11 @@ import { auth, db } from "../firebase/firebase";
 
 const AuthContext = createContext();
 
+export const getCurrencySymbol = (currency) => {
+  const symbols = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+  return symbols[currency] || currency || "₹";
+};
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
@@ -76,10 +81,13 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  const currencySymbol = getCurrencySymbol(userProfile?.currency);
+
   const value = {
     currentUser,
     userProfile,
     setUserProfile,
+    currencySymbol,
     signup,
     login,
     logout,

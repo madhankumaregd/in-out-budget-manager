@@ -34,10 +34,11 @@ import {
 import AddAccountModal from "../components/AddAccountModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import TransferModal from "../components/TransferModal";
+import DashboardDetailModal from "../components/DashboardDetailModal";
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, currencySymbol } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,7 @@ const Dashboard = () => {
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [detailMode, setDetailMode] = useState(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -204,13 +206,16 @@ const Dashboard = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white"
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDetailMode("accounts")}
+            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
               <Wallet className="w-8 h-8 opacity-80" />
               <span className="text-sm opacity-80">Total Balance</span>
             </div>
-            <p className="text-3xl font-bold">₹{totalBalance.toLocaleString('en-IN')}</p>
+            <p className="text-3xl font-bold">{currencySymbol}{totalBalance.toLocaleString('en-IN')}</p>
             <p className="text-sm opacity-80 mt-2">Across {accounts.length} accounts</p>
           </motion.div>
 
@@ -218,13 +223,16 @@ const Dashboard = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white"
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDetailMode("income")}
+            className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
               <TrendingUp className="w-8 h-8 opacity-80" />
               <span className="text-sm opacity-80">Income (30 days)</span>
             </div>
-            <p className="text-3xl font-bold">+₹{totalIncome.toLocaleString('en-IN')}</p>
+            <p className="text-3xl font-bold">+{currencySymbol}{totalIncome.toLocaleString('en-IN')}</p>
             <p className="text-sm opacity-80 mt-2">From {recentTransactions.filter(t => t.type === 'income').length} transactions</p>
           </motion.div>
 
@@ -232,13 +240,16 @@ const Dashboard = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white"
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDetailMode("expense")}
+            className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
               <TrendingDown className="w-8 h-8 opacity-80" />
               <span className="text-sm opacity-80">Expense (30 days)</span>
             </div>
-            <p className="text-3xl font-bold">-₹{totalExpense.toLocaleString('en-IN')}</p>
+            <p className="text-3xl font-bold">-{currencySymbol}{totalExpense.toLocaleString('en-IN')}</p>
             <p className="text-sm opacity-80 mt-2">From {recentTransactions.filter(t => t.type === 'expense').length} transactions</p>
           </motion.div>
         </div>
@@ -297,7 +308,7 @@ const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
-                  <Tooltip formatter={(value) => `₹${value.toLocaleString('en-IN')}`} />
+                  <Tooltip formatter={(value) => `${currencySymbol}${value.toLocaleString('en-IN')}`} />
                   <Legend />
                   <Bar dataKey="income" fill="#10B981" radius={[10, 10, 0, 0]} />
                   <Bar dataKey="expense" fill="#EF4444" radius={[10, 10, 0, 0]} />
@@ -331,7 +342,7 @@ const Dashboard = () => {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `₹${value.toLocaleString('en-IN')}`} />
+                  <Tooltip formatter={(value) => `${currencySymbol}${value.toLocaleString('en-IN')}`} />
                 </PieChart>
               </ResponsiveContainer>
             </motion.div>
@@ -380,7 +391,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    ₹{account.balance?.toLocaleString('en-IN') || '0'}
+                    {currencySymbol}{account.balance?.toLocaleString('en-IN') || '0'}
                   </p>
                 </motion.div>
               ))}
@@ -430,6 +441,15 @@ const Dashboard = () => {
           onSave={handleAddTransaction}
         />
       )}
+
+      {/* Detail Modal */}
+      <DashboardDetailModal
+        isOpen={!!detailMode}
+        onClose={() => setDetailMode(null)}
+        mode={detailMode}
+        transactions={transactions}
+        accounts={accounts}
+      />
     </div>
   );
 };

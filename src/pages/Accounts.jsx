@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import {
   getUserAccounts,
   updateAccount,
@@ -28,16 +29,20 @@ import {
   CreditCard,
   Building,
   Phone,
+  LogOut,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import ConfirmModal from "../components/ConfirmModal";
 
 const Accounts = () => {
-  const { currentUser, userProfile, setUserProfile } = useAuth();
+  const { currentUser, userProfile, setUserProfile, currencySymbol, logout } = useAuth();
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingAccount, setEditingAccount] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState(null);
   const [profileForm, setProfileForm] = useState({
     displayName: "",
     email: "",
@@ -100,23 +105,29 @@ const Accounts = () => {
     }
   };
 
-  const handleDeleteAccount = async (accountId) => {
+  const handleDeleteAccount = async () => {
+    const accountId = pendingDeleteAccountId;
+    if (!accountId) return;
+    try {
+      await deleteAccount(currentUser.uid, accountId);
+      const accountsData = await getUserAccounts(currentUser.uid);
+      setAccounts(accountsData);
+      toast.success("Account deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      toast.error("Failed to delete account");
+    } finally {
+      setPendingDeleteAccountId(null);
+    }
+  };
+
+  const requestDeleteAccount = (accountId) => {
     const account = accounts.find((a) => a.id === accountId);
     if (account.balance !== 0) {
       toast.error("Cannot delete account with non-zero balance");
       return;
     }
-    if (window.confirm("Are you sure you want to delete this account?")) {
-      try {
-        await deleteAccount(currentUser.uid, accountId);
-        const accountsData = await getUserAccounts(currentUser.uid);
-        setAccounts(accountsData);
-        toast.success("Account deleted successfully!");
-      } catch (err) {
-        console.error("Error deleting account:", err);
-        toast.error("Failed to delete account");
-      }
-    }
+    setPendingDeleteAccountId(accountId);
   };
 
   const handleUpdateProfile = async () => {
@@ -334,7 +345,7 @@ const Accounts = () => {
                 <div>
                   <p className="text-sm text-gray-500">Currency</p>
                   <p className="font-medium text-gray-800">
-                    {userProfile?.currency || "INR"} (₹)
+                    {userProfile?.currency || "INR"} ({currencySymbol})
                   </p>
                 </div>
               </div>
@@ -458,7 +469,7 @@ const Accounts = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                                ₹{account.balance?.toLocaleString("en-IN")}
+                                {currencySymbol}{account.balance?.toLocaleString("en-IN")}
                               </p>
                               <div className="flex gap-2 mt-2">
                                 <button
@@ -469,7 +480,7 @@ const Accounts = () => {
                                 </button>
                                 <button
                                   onClick={() =>
-                                    handleDeleteAccount(account.id)
+                                    requestDeleteAccount(account.id)
                                   }
                                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                                 >
@@ -503,7 +514,7 @@ const Accounts = () => {
                                     format(new Date(date), "MMM dd, yyyy")
                                   }
                                   formatter={(value) => [
-                                    `₹${value.toLocaleString("en-IN")}`,
+                                    `${currencySymbol}${value.toLocaleString("en-IN")}`,
                                     "Balance",
                                   ]}
                                 />
@@ -548,7 +559,7 @@ const Accounts = () => {
                                       {t.fromAccountId === account.id
                                         ? "-"
                                         : "+"}{" "}
-                                      ₹{t.amount.toLocaleString("en-IN")}
+                                      {currencySymbol}{t.amount.toLocaleString("en-IN")}
                                     </p>
                                   </div>
                                 ))}
@@ -582,7 +593,38 @@ const Accounts = () => {
             </motion.div>
           )}
         </motion.div>
+
+        {/* Logout Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-10 flex justify-center"
+        >
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={async () => {
+              await logout();
+              navigate("/login");
+            }}
+            className="flex items-center gap-3 bg-red-50 text-red-600 border border-red-200 px-8 py-3 rounded-xl font-semibold hover:bg-red-100 transition-all shadow-sm"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Logout</span>
+          </motion.button>
+        </motion.div>
       </div>
+
+      {/* Account delete confirmation modal */}
+      <ConfirmModal
+        isOpen={!!pendingDeleteAccountId}
+        onCancel={() => setPendingDeleteAccountId(null)}
+        onConfirm={handleDeleteAccount}
+        title="Delete Account?"
+        message="This will permanently delete the account. Make sure the balance is zero before deleting."
+        confirmLabel="Yes, Delete"
+      />
     </div>
   );
 };

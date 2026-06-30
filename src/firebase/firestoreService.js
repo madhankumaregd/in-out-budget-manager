@@ -116,17 +116,6 @@ export const createTransaction = async (userId, transactionData) => {
   const transactionsRef = collection(db, "users", userId, "transactions");
 
   if (transactionData.type === "transfer") {
-    const docRef = await addDoc(transactionsRef, {
-      type: "transfer",
-      amount: Number(transactionData.amount),
-      fromAccountId: transactionData.fromAccountId,
-      toAccountId: transactionData.toAccountId,
-      date: Timestamp.fromDate(new Date(transactionData.date)),
-      description: transactionData.description || "",
-      category: "Transfer",
-      createdAt: Timestamp.now(),
-    });
-
     const fromAccountRef = doc(
       db,
       "users",
@@ -145,28 +134,38 @@ export const createTransaction = async (userId, transactionData) => {
     const fromAccount = await getDoc(fromAccountRef);
     const toAccount = await getDoc(toAccountRef);
 
+    const fromBalance = fromAccount.data().balance || 0;
+    const transferAmount = Number(transactionData.amount);
+
+    // Balance guard for transfer
+    if (fromBalance < transferAmount) {
+      throw new Error(
+        `Insufficient balance! Account has ${fromBalance.toFixed(2)} but you tried to transfer ${transferAmount.toFixed(2)}.`,
+      );
+    }
+
+    const docRef = await addDoc(transactionsRef, {
+      type: "transfer",
+      amount: transferAmount,
+      fromAccountId: transactionData.fromAccountId,
+      toAccountId: transactionData.toAccountId,
+      date: Timestamp.fromDate(new Date(transactionData.date)),
+      description: transactionData.description || "",
+      category: "Transfer",
+      createdAt: Timestamp.now(),
+    });
+
     const batch = writeBatch(db);
     batch.update(fromAccountRef, {
-      balance:
-        (fromAccount.data().balance || 0) - Number(transactionData.amount),
+      balance: fromBalance - transferAmount,
     });
     batch.update(toAccountRef, {
-      balance: (toAccount.data().balance || 0) + Number(transactionData.amount),
+      balance: (toAccount.data().balance || 0) + transferAmount,
     });
     await batch.commit();
 
     return { id: docRef.id, ...transactionData };
   } else {
-    const docRef = await addDoc(transactionsRef, {
-      type: transactionData.type,
-      amount: Number(transactionData.amount),
-      category: transactionData.category,
-      fromAccountId: transactionData.fromAccountId,
-      date: Timestamp.fromDate(new Date(transactionData.date)),
-      description: transactionData.description || "",
-      createdAt: Timestamp.now(),
-    });
-
     const accountRef = doc(
       db,
       "users",
@@ -176,16 +175,93 @@ export const createTransaction = async (userId, transactionData) => {
     );
     const account = await getDoc(accountRef);
     const currentBalance = account.data().balance || 0;
+    const txAmount = Number(transactionData.amount);
+
+    // Balance guard for expenses
+    if (transactionData.type === "expense" && currentBalance < txAmount) {
+      throw new Error(
+        `Insufficient balance! Account has ${currentBalance.toFixed(2)} but you tried to spend ${txAmount.toFixed(2)}.`,
+      );
+    }
 
     const newBalance =
       transactionData.type === "income"
-        ? currentBalance + Number(transactionData.amount)
-        : currentBalance - Number(transactionData.amount);
+        ? currentBalance + txAmount
+        : currentBalance - txAmount;
+
+    const docRef = await addDoc(transactionsRef, {
+      type: transactionData.type,
+      amount: txAmount,
+      category: transactionData.category,
+      fromAccountId: transactionData.fromAccountId,
+      date: Timestamp.fromDate(new Date(transactionData.date)),
+      description: transactionData.description || "",
+      createdAt: Timestamp.now(),
+    });
 
     await updateDoc(accountRef, { balance: newBalance });
 
     return { id: docRef.id, ...transactionData };
   }
+};
+
+// Multi-account split transfer: splits a total amount across multiple source accounts
+export const createSplitTransfer = async (userId, splitData) => {
+  if (!userId) throw new Error("User ID is required");
+  // splitData: { splits: [{fromAccountId, amount}], toAccountId, totalAmount, date, description }
+
+  const transactionsRef = collection(db, "users", userId, "transactions");
+
+  // Validate all source accounts have sufficient balance first
+  for (const split of splitData.splits) {
+    const accountRef = doc(db, "users", userId, "accounts", split.fromAccountId);
+    const accountDoc = await getDoc(accountRef);
+    const balance = accountDoc.data().balance || 0;
+    const splitAmount = Number(split.amount);
+    if (balance < splitAmount) {
+      const accountName = accountDoc.data().name || split.fromAccountId;
+      throw new Error(
+        `Insufficient balance in "${accountName}"! Has ${balance.toFixed(2)} but needs ${splitAmount.toFixed(2)}.`,
+      );
+    }
+  }
+
+  // All checks passed — apply in a batch
+  const batch = writeBatch(db);
+  const docIds = [];
+
+  const toAccountRef = doc(db, "users", userId, "accounts", splitData.toAccountId);
+  const toAccountDoc = await getDoc(toAccountRef);
+  let toBalance = toAccountDoc.data().balance || 0;
+
+  for (const split of splitData.splits) {
+    const splitAmount = Number(split.amount);
+    const fromAccountRef = doc(db, "users", userId, "accounts", split.fromAccountId);
+    const fromAccountDoc = await getDoc(fromAccountRef);
+    const fromBalance = fromAccountDoc.data().balance || 0;
+
+    batch.update(fromAccountRef, { balance: fromBalance - splitAmount });
+    toBalance += splitAmount;
+
+    // Create individual transaction record for each split
+    const docRef = doc(transactionsRef);
+    docIds.push(docRef.id);
+    batch.set(docRef, {
+      type: "transfer",
+      amount: splitAmount,
+      fromAccountId: split.fromAccountId,
+      toAccountId: splitData.toAccountId,
+      date: Timestamp.fromDate(new Date(splitData.date)),
+      description: splitData.description || "",
+      category: "Transfer (Split)",
+      createdAt: Timestamp.now(),
+    });
+  }
+
+  batch.update(toAccountRef, { balance: toBalance });
+  await batch.commit();
+
+  return docIds;
 };
 
 export const getUserTransactions = async (userId, filters = {}) => {
