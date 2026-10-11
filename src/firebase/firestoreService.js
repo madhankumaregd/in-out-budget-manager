@@ -7,13 +7,25 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit as firestoreLimit,
+  startAfter,
   Timestamp,
   writeBatch,
   getDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import {
+  checkTransactionRate,
+  recordTransaction,
+  formatCooldown,
+} from "../utils/rateLimiter";
+import {
+  sanitizeString,
+  validateAmount,
+  validateTransactionType,
+} from "../utils/sanitizer";
 
-// USER PROFILE
+// ─── USER PROFILE ──────────────────────────────────────────────
 export const getUserProfile = async (userId) => {
   if (!userId) return null;
 
@@ -34,20 +46,25 @@ export const getUserProfile = async (userId) => {
 export const updateUserProfile = async (userId, profileData) => {
   if (!userId) throw new Error("User ID is required");
 
+  // Sanitize text fields
+  const sanitized = { ...profileData };
+  if (sanitized.displayName)
+    sanitized.displayName = sanitizeString(sanitized.displayName);
+
   const userRef = doc(db, "users", userId);
   await updateDoc(userRef, {
-    ...profileData,
+    ...sanitized,
     updatedAt: Timestamp.now(),
   });
 };
 
-// ACCOUNTS
+// ─── ACCOUNTS ──────────────────────────────────────────────────
 export const createAccount = async (userId, accountData) => {
   if (!userId) throw new Error("User ID is required");
 
   const accountsRef = collection(db, "users", userId, "accounts");
   const docRef = await addDoc(accountsRef, {
-    name: accountData.name,
+    name: sanitizeString(accountData.name),
     type: accountData.type,
     balance: Number(accountData.balance) || 0,
     currency: accountData.currency || "INR",
@@ -97,8 +114,12 @@ export const updateAccount = async (userId, accountId, updates) => {
   if (!userId || !accountId)
     throw new Error("User ID and Account ID are required");
 
+  // Sanitize any text updates
+  const sanitized = { ...updates };
+  if (sanitized.name) sanitized.name = sanitizeString(sanitized.name);
+
   const accountRef = doc(db, "users", userId, "accounts", accountId);
-  await updateDoc(accountRef, updates);
+  await updateDoc(accountRef, sanitized);
 };
 
 export const deleteAccount = async (userId, accountId) => {
@@ -109,9 +130,29 @@ export const deleteAccount = async (userId, accountId) => {
   await deleteDoc(accountRef);
 };
 
-// TRANSACTIONS
+// ─── TRANSACTIONS (Rate-Limited + Sanitized) ───────────────────
 export const createTransaction = async (userId, transactionData) => {
   if (!userId) throw new Error("User ID is required");
+
+  // ── Rate Limit Check ──
+  const rateCheck = checkTransactionRate(userId);
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
+    );
+  }
+
+  // ── Input Validation ──
+  const amountCheck = validateAmount(transactionData.amount);
+  if (!amountCheck.valid) throw new Error(amountCheck.error);
+
+  if (!validateTransactionType(transactionData.type)) {
+    throw new Error("Invalid transaction type");
+  }
+
+  // ── Sanitize text fields ──
+  const description = sanitizeString(transactionData.description || "");
+  const category = sanitizeString(transactionData.category || "");
 
   const transactionsRef = collection(db, "users", userId, "transactions");
 
@@ -121,26 +162,28 @@ export const createTransaction = async (userId, transactionData) => {
       "users",
       userId,
       "accounts",
-      transactionData.fromAccountId,
+      transactionData.fromAccountId
     );
     const toAccountRef = doc(
       db,
       "users",
       userId,
       "accounts",
-      transactionData.toAccountId,
+      transactionData.toAccountId
     );
 
-    const fromAccount = await getDoc(fromAccountRef);
-    const toAccount = await getDoc(toAccountRef);
+    // Fetch both accounts concurrently
+    const [fromAccount, toAccount] = await Promise.all([
+      getDoc(fromAccountRef),
+      getDoc(toAccountRef),
+    ]);
 
     const fromBalance = fromAccount.data().balance || 0;
-    const transferAmount = Number(transactionData.amount);
+    const transferAmount = amountCheck.value;
 
-    // Balance guard for transfer
     if (fromBalance < transferAmount) {
       throw new Error(
-        `Insufficient balance! Account has ${fromBalance.toFixed(2)} but you tried to transfer ${transferAmount.toFixed(2)}.`,
+        `Insufficient balance! Account has ${fromBalance.toFixed(2)} but you tried to transfer ${transferAmount.toFixed(2)}.`
       );
     }
 
@@ -150,7 +193,7 @@ export const createTransaction = async (userId, transactionData) => {
       fromAccountId: transactionData.fromAccountId,
       toAccountId: transactionData.toAccountId,
       date: Timestamp.fromDate(new Date(transactionData.date)),
-      description: transactionData.description || "",
+      description,
       category: "Transfer",
       createdAt: Timestamp.now(),
     });
@@ -164,6 +207,9 @@ export const createTransaction = async (userId, transactionData) => {
     });
     await batch.commit();
 
+    // Record rate limit hit
+    recordTransaction(userId);
+
     return { id: docRef.id, ...transactionData };
   } else {
     const accountRef = doc(
@@ -171,16 +217,15 @@ export const createTransaction = async (userId, transactionData) => {
       "users",
       userId,
       "accounts",
-      transactionData.fromAccountId,
+      transactionData.fromAccountId
     );
     const account = await getDoc(accountRef);
     const currentBalance = account.data().balance || 0;
-    const txAmount = Number(transactionData.amount);
+    const txAmount = amountCheck.value;
 
-    // Balance guard for expenses
     if (transactionData.type === "expense" && currentBalance < txAmount) {
       throw new Error(
-        `Insufficient balance! Account has ${currentBalance.toFixed(2)} but you tried to spend ${txAmount.toFixed(2)}.`,
+        `Insufficient balance! Account has ${currentBalance.toFixed(2)} but you tried to spend ${txAmount.toFixed(2)}.`
       );
     }
 
@@ -192,36 +237,68 @@ export const createTransaction = async (userId, transactionData) => {
     const docRef = await addDoc(transactionsRef, {
       type: transactionData.type,
       amount: txAmount,
-      category: transactionData.category,
+      category,
       fromAccountId: transactionData.fromAccountId,
       date: Timestamp.fromDate(new Date(transactionData.date)),
-      description: transactionData.description || "",
+      description,
       createdAt: Timestamp.now(),
     });
 
     await updateDoc(accountRef, { balance: newBalance });
 
+    // Record rate limit hit
+    recordTransaction(userId);
+
     return { id: docRef.id, ...transactionData };
   }
 };
 
-// Multi-account split transfer: splits a total amount across multiple source accounts
+// Multi-account split transfer
 export const createSplitTransfer = async (userId, splitData) => {
   if (!userId) throw new Error("User ID is required");
-  // splitData: { splits: [{fromAccountId, amount}], toAccountId, totalAmount, date, description }
+
+  // Rate limit check
+  const rateCheck = checkTransactionRate(userId);
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
+    );
+  }
 
   const transactionsRef = collection(db, "users", userId, "transactions");
 
-  // Validate all source accounts have sufficient balance first
+  // Validate all amounts
   for (const split of splitData.splits) {
-    const accountRef = doc(db, "users", userId, "accounts", split.fromAccountId);
-    const accountDoc = await getDoc(accountRef);
+    const check = validateAmount(split.amount);
+    if (!check.valid) throw new Error(check.error);
+  }
+
+  // Fetch ALL accounts concurrently instead of sequential loop
+  const accountFetches = splitData.splits.map((split) =>
+    getDoc(doc(db, "users", userId, "accounts", split.fromAccountId))
+  );
+  const toAccountRef = doc(
+    db,
+    "users",
+    userId,
+    "accounts",
+    splitData.toAccountId
+  );
+  accountFetches.push(getDoc(toAccountRef));
+
+  const accountDocs = await Promise.all(accountFetches);
+  const toAccountDoc = accountDocs.pop();
+
+  // Validate all source balances
+  for (let i = 0; i < splitData.splits.length; i++) {
+    const split = splitData.splits[i];
+    const accountDoc = accountDocs[i];
     const balance = accountDoc.data().balance || 0;
     const splitAmount = Number(split.amount);
     if (balance < splitAmount) {
       const accountName = accountDoc.data().name || split.fromAccountId;
       throw new Error(
-        `Insufficient balance in "${accountName}"! Has ${balance.toFixed(2)} but needs ${splitAmount.toFixed(2)}.`,
+        `Insufficient balance in "${accountName}"! Has ${balance.toFixed(2)} but needs ${splitAmount.toFixed(2)}.`
       );
     }
   }
@@ -229,21 +306,24 @@ export const createSplitTransfer = async (userId, splitData) => {
   // All checks passed — apply in a batch
   const batch = writeBatch(db);
   const docIds = [];
-
-  const toAccountRef = doc(db, "users", userId, "accounts", splitData.toAccountId);
-  const toAccountDoc = await getDoc(toAccountRef);
   let toBalance = toAccountDoc.data().balance || 0;
+  const sanitizedDesc = sanitizeString(splitData.description || "");
 
-  for (const split of splitData.splits) {
+  for (let i = 0; i < splitData.splits.length; i++) {
+    const split = splitData.splits[i];
     const splitAmount = Number(split.amount);
-    const fromAccountRef = doc(db, "users", userId, "accounts", split.fromAccountId);
-    const fromAccountDoc = await getDoc(fromAccountRef);
-    const fromBalance = fromAccountDoc.data().balance || 0;
+    const fromAccountRef = doc(
+      db,
+      "users",
+      userId,
+      "accounts",
+      split.fromAccountId
+    );
+    const fromBalance = accountDocs[i].data().balance || 0;
 
     batch.update(fromAccountRef, { balance: fromBalance - splitAmount });
     toBalance += splitAmount;
 
-    // Create individual transaction record for each split
     const docRef = doc(transactionsRef);
     docIds.push(docRef.id);
     batch.set(docRef, {
@@ -252,7 +332,7 @@ export const createSplitTransfer = async (userId, splitData) => {
       fromAccountId: split.fromAccountId,
       toAccountId: splitData.toAccountId,
       date: Timestamp.fromDate(new Date(splitData.date)),
-      description: splitData.description || "",
+      description: sanitizedDesc,
       category: "Transfer (Split)",
       createdAt: Timestamp.now(),
     });
@@ -261,24 +341,46 @@ export const createSplitTransfer = async (userId, splitData) => {
   batch.update(toAccountRef, { balance: toBalance });
   await batch.commit();
 
+  // Record one rate limit event for the whole split
+  recordTransaction(userId);
+
   return docIds;
 };
 
-export const getUserTransactions = async (userId, filters = {}) => {
-  if (!userId) return [];
+// ─── PAGINATED TRANSACTIONS ────────────────────────────────────
+const DEFAULT_PAGE_SIZE = 25;
+
+export const getUserTransactionsPaginated = async (
+  userId,
+  filters = {},
+  pageSize = DEFAULT_PAGE_SIZE,
+  lastDoc = null
+) => {
+  if (!userId) return { transactions: [], lastDoc: null, hasMore: false };
 
   try {
-    let transactionsRef = collection(db, "users", userId, "transactions");
-    let q = query(transactionsRef, orderBy("date", "desc"));
+    const transactionsRef = collection(db, "users", userId, "transactions");
 
+    // Build query with pagination
+    const constraints = [orderBy("date", "desc"), firestoreLimit(pageSize + 1)];
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
+    }
+
+    const q = query(transactionsRef, ...constraints);
     const querySnapshot = await getDocs(q);
-    let transactions = querySnapshot.docs.map((doc) => ({
+
+    let transactions = querySnapshot.docs.slice(0, pageSize).map((doc) => ({
       id: doc.id,
       ...doc.data(),
       date: doc.data().date?.toDate() || new Date(),
       amount: doc.data().amount || 0,
     }));
 
+    const hasMore = querySnapshot.docs.length > pageSize;
+    const newLastDoc = querySnapshot.docs[pageSize - 1] || null;
+
+    // Client-side filters (for filters not supported by Firestore composite indexes)
     if (filters.type && filters.type !== "all") {
       transactions = transactions.filter((t) => t.type === filters.type);
     }
@@ -287,29 +389,42 @@ export const getUserTransactions = async (userId, filters = {}) => {
       transactions = transactions.filter(
         (t) =>
           t.fromAccountId === filters.accountId ||
-          t.toAccountId === filters.accountId,
+          t.toAccountId === filters.accountId
       );
     }
 
-    return transactions;
+    return { transactions, lastDoc: newLastDoc, hasMore };
   } catch (error) {
     console.error("Error getting transactions:", error);
-    return [];
+    return { transactions: [], lastDoc: null, hasMore: false };
   }
+};
+
+// Backward-compatible: returns flat array (used by Dashboard, Transactions, Accounts)
+export const getUserTransactions = async (userId, filters = {}) => {
+  const result = await getUserTransactionsPaginated(userId, filters, 500);
+  return result.transactions;
 };
 
 export const updateTransaction = async (userId, transactionId, updates) => {
   if (!userId || !transactionId)
     throw new Error("User ID and Transaction ID are required");
 
+  // Sanitize text updates
+  const sanitized = { ...updates };
+  if (sanitized.description)
+    sanitized.description = sanitizeString(sanitized.description);
+  if (sanitized.category)
+    sanitized.category = sanitizeString(sanitized.category);
+
   const transactionRef = doc(
     db,
     "users",
     userId,
     "transactions",
-    transactionId,
+    transactionId
   );
-  await updateDoc(transactionRef, updates);
+  await updateDoc(transactionRef, sanitized);
 };
 
 export const deleteTransaction = async (userId, transactionId) => {
@@ -321,7 +436,7 @@ export const deleteTransaction = async (userId, transactionId) => {
     "users",
     userId,
     "transactions",
-    transactionId,
+    transactionId
   );
   const transactionDoc = await getDoc(transactionRef);
 
@@ -337,18 +452,21 @@ export const deleteTransaction = async (userId, transactionId) => {
       "users",
       userId,
       "accounts",
-      transaction.fromAccountId,
+      transaction.fromAccountId
     );
     const toAccountRef = doc(
       db,
       "users",
       userId,
       "accounts",
-      transaction.toAccountId,
+      transaction.toAccountId
     );
 
-    const fromAccount = await getDoc(fromAccountRef);
-    const toAccount = await getDoc(toAccountRef);
+    // Fetch both accounts concurrently
+    const [fromAccount, toAccount] = await Promise.all([
+      getDoc(fromAccountRef),
+      getDoc(toAccountRef),
+    ]);
 
     const batch = writeBatch(db);
     batch.update(fromAccountRef, {
@@ -364,7 +482,7 @@ export const deleteTransaction = async (userId, transactionId) => {
       "users",
       userId,
       "accounts",
-      transaction.fromAccountId,
+      transaction.fromAccountId
     );
     const account = await getDoc(accountRef);
 

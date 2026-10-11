@@ -15,6 +15,10 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
+import {
+  checkRegistrationLimit,
+  recordRegistration,
+} from "../utils/deviceFingerprint";
 
 const AuthContext = createContext();
 
@@ -32,6 +36,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const signup = async (email, password, displayName = "") => {
+    // ── Device Registration Throttle ──
+    // Max 3 accounts per device per day
+    const regCheck = await checkRegistrationLimit();
+    if (!regCheck.allowed) {
+      throw new Error(regCheck.error);
+    }
+
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -55,6 +66,9 @@ export const AuthProvider = ({ children }) => {
     // Send email verification
     await sendEmailVerification(userCredential.user);
 
+    // Record successful registration for device throttling
+    await recordRegistration();
+
     return userCredential;
   };
 
@@ -71,6 +85,14 @@ export const AuthProvider = ({ children }) => {
     const userDocSnap = await getDoc(userDocRef);
     
     if (!userDocSnap.exists()) {
+      // Google sign-in also counts toward device registration limit
+      const regCheck = await checkRegistrationLimit();
+      if (!regCheck.allowed) {
+        // Sign out the newly-created Google user
+        await signOut(auth);
+        throw new Error(regCheck.error);
+      }
+
       await setDoc(userDocRef, {
         email: result.user.email,
         displayName: result.user.displayName,
@@ -78,6 +100,8 @@ export const AuthProvider = ({ children }) => {
         currency: "INR",
         currencySymbol: "₹",
       });
+
+      await recordRegistration();
     }
     return result;
   };

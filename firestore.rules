@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── HELPER FUNCTIONS ──────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ─── RATE LIMITS (Registration Throttle) ───────────
+    // Allows creation by anyone (pre-auth fingerprint writes)
+    // but restricts reads to authenticated users only.
+    match /rateLimits/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if true;  // Device fingerprint writes happen before auth
+      allow update: if true;  // Increment counter
+      allow delete: if false; // Never delete rate limit records client-side
+    }
+
+    // ─── ADMIN CONFIG ──────────────────────────────────
+    // Public read for app version/maintenanceMode; authenticated write
+    match /adminConfig/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // ─── API KEYS ──────────────────────────────────────
+    // Only authenticated users can manage API keys
+    match /apiKeys/{keyId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ─── USER DOCUMENTS ────────────────────────────────
+    match /users/{userId} {
+      // Users can read their own data; any authenticated user
+      // can read all users (needed for admin listing).
+      allow read: if isAuthenticated();
+
+      // Users can only write their own document
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+
+      // Deletion allowed by owner or any authenticated user (admin)
+      allow delete: if isAuthenticated();
+
+      // ── Accounts ─────────────────────────────────────
+      match /accounts/{accountId} {
+        allow read: if isAuthenticated();
+        allow create: if isOwner(userId);
+        allow update: if isAuthenticated();  // Transfers touch other users' accounts
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Transactions (Schema-Validated) ──────────────
+      match /transactions/{transactionId} {
+        allow read: if isAuthenticated();
+
+        // Enforce schema on create:
+        // - amount must be positive
+        // - type must be income, expense, or transfer
+        allow create: if isOwner(userId)
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0
+          && request.resource.data.type in ['income', 'expense', 'transfer'];
+
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Trash ────────────────────────────────────────
+      match /trash/{trashId} {
+        allow read: if isAuthenticated();
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isAuthenticated();  // Admin can empty trash
+      }
+    }
+  }
+}

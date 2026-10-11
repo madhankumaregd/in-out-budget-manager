@@ -1,81 +1,104 @@
-# 💰 IN & OUT — Personal Budget Manager
+# 💰 IN & OUT — Budget Manager & Database Observability Platform
 
-A modern, full-featured personal budget management web app built with **React 19**, **Firebase**, and **Tailwind CSS 4**. Track income, expenses, and transfers across multiple accounts with rich visualizations and a polished, animated UI.
+A modern, high-performance personal budget management web application and administrative observability platform built with **React 19**, **Firebase (Auth & Firestore)**, and **Tailwind CSS 4**. Features instant offline cached reads, multi-layer security protections, atomic multi-account transfers, and a dedicated **Admin Portal** with real-time database quota and storage telemetry.
 
 ---
 
-## ✨ Features
+## ✨ Features Overview
 
-### 🔐 Authentication & Onboarding
-- Email/password signup & login with Firebase Auth
-- Google OAuth sign-in
-- Email verification flow
-- Phone number collection during onboarding
-- Profile setup with display name and preferred currency
-- Password reset via email
+### 👤 1. User Application Experience
+* **Authentication & Onboarding:**
+  * Email/Password signup and login via Firebase Auth.
+  * One-tap Google OAuth sign-in.
+  * Mandatory email verification & phone collection onboarding flow.
+  * Profile customization with display name and preferred currency (**₹ INR**, **$ USD**, **€ EUR**, **£ GBP**).
+* **Financial Dashboard:**
+  * Instant financial overview: total balance, 30-day income, and 30-day expense summary cards.
+  * Interactive monthly income vs. expense bar charts ([Recharts](https://recharts.org/)).
+  * Expense category breakdown donut chart.
+  * Quick-action modal triggers for income, expense, and transfer creation.
+  * Drill-down modal inspection on summary cards.
+* **Multi-Account Management:**
+  * Support for Bank, Savings, Credit Card, and Cash accounts.
+  * Balance trend line charts and recent transaction logs per account.
+  * Insufficient balance protection preventing overdrafts.
+  * Zero-balance deletion safety enforcement.
+* **Smart Transactions & Split Transfers:**
+  * Record income and expenses categorized with custom tags.
+  * Single transfers or **multi-account split transfers** with atomic Firestore batch commits.
+  * Real-time search and filtering by account, type, and date range.
+  * Desktop data tables and mobile-responsive card lists.
 
-### 📊 Dashboard
-- **Financial overview** — total balance, 30-day income, and 30-day expense summary cards
-- **Monthly bar chart** — income vs. expense breakdown by month (Recharts)
-- **Category pie chart** — spending distribution by expense category
-- **Accounts summary** — all accounts with balances at a glance
-- **Quick actions** — one-tap buttons to add income, expense, or transfer
-- **Clickable stat cards** — tap any summary card to drill into detailed transaction modals
-- Smooth entrance animations via Framer Motion
+---
 
-### 💳 Multi-Account Management
-- Create accounts of various types: **Bank**, **Savings**, **Credit Card**, or **Other**
-- Edit account name, balance, and type inline
-- Delete accounts (enforces zero-balance rule)
-- **Balance trend line chart** per account
-- **Recent transactions list** per account
-- Dynamic account icons based on type
+### 🛡️ 2. Performance & Multi-Layer Security Architecture
 
-### 💸 Transactions
-- Record **income** and **expense** transactions with category, date, description, and target account
-- **Transfer** funds between accounts (single transfer or **multi-account split transfer**)
-- **Insufficient balance guard** — prevents overspending on expenses and transfers
-- Automatic account balance adjustment on create/delete
-- Batch writes via Firestore `writeBatch` for atomic transfers
+* **Multi-Tab Persistent Offline Cache:**
+  * Firestore configured with `persistentLocalCache` and `persistentMultipleTabManager`.
+  * Repeated page visits load instantly (**~0ms**) from local IndexedDB cache before synchronizing in the background.
+* **Elimination of N+1 Query Bottlenecks:**
+  * Replaced sequential waterfall queries with parallelized `Promise.all` concurrent execution across subcollections.
+* **Route Code-Splitting & Manual Chunk Splitting:**
+  * Lazy-loaded route bundles with `React.lazy()` and `Suspense`.
+  * Heavy dependencies (`firebase`, `recharts`, `framer-motion`, `lucide-react`, `router`) isolated into separate cached chunks via Vite.
+* **Sliding-Window Rate Limiter:**
+  * In-memory token bucket capping user mutations to **10 transactions per 60 seconds** to eliminate duplicate clicks and automated bot abuse.
+* **Input Sanitization (XSS Prevention):**
+  * Automated regex sanitization stripping `<script>`, `<iframe>`, javascript protocols, and HTML tags from all text inputs.
+* **Device Fingerprinting & Registration Throttle:**
+  * Canvas and browser trait fingerprint hashing.
+  * Limits new account creation to **max 3 accounts per device per day** via Firestore tracking.
+* **Re-Authentication Guard:**
+  * Requires fresh password authentication or Google re-auth within 5 minutes for high-risk operations (such as "Delete All Users").
+* **Hardened Cloud Firestore Security Rules:**
+  * Schema enforcement at the database layer (strictly positive amounts, validated transaction types, and user document ownership).
 
-### 📋 Transaction History
-- Full transaction log with **desktop table** and **mobile card** layouts
-- **Search** transactions by description
-- **Filters** — by type (income / expense / transfer), account, and date range
-- Color-coded type badges and amount formatting
-- Delete transactions with automatic balance restoration
-- Confirmation modal before destructive actions
+---
 
-### 👤 Profile & Settings
-- View and edit profile (display name, phone, currency)
-- Multi-currency support: **₹ INR**, **$ USD**, **€ EUR**, **£ GBP**
-- Logout from the profile dropdown or the accounts page
+### ⚡ 3. Dedicated Admin Portal (`/in-out-manager`)
 
-### 🎨 UI & UX
-- Glassmorphism navbar with backdrop blur
-- Gradient stat cards and buttons
-- Framer Motion page transitions, hover effects, and micro-animations
-- Responsive design — mobile-first with adaptive layouts
-- Toast notifications for all actions (react-hot-toast)
-- Custom confirmation modals for delete operations
+Accessible at `/in-out-manager`, the Admin Control Center provides infrastructure and database telemetry:
+
+* **Database & Infrastructure Observability:**
+  * **Zero Financial Noise:** Pure database metrics—no income, expense, or currency figures.
+  * **Document Reads Tracking:** Consumed reads vs. daily/weekly/monthly quota, remaining headroom, and percentage consumed.
+  * **Document Writes Tracking:** Consumed writes vs. quota limits.
+  * **Document Deletes Tracking:** Consumed deletes vs. quota limits.
+* **Available vs. Occupied Storage Footprint:**
+  * Visual stacked capacity meter representing **Occupied Storage** (e.g. `12.7 KB`, `0.0012%`) against total **Available Storage** (`1,024 MB / 1.00 GB` on the Firebase Spark Free Plan).
+  * Interactive Donut chart displaying storage share by collection (`transactions`, `users`, `accounts`, `trash`, `apiKeys`, `rateLimits`, and `indexes`).
+  * Detailed breakdown table with document counts, data sizes, and database percentage.
+* **Dynamic Time Filters & Automatic Quota Scaling:**
+  * **24 Hours (`days`):** 50,000 daily reads quota, 20,000 writes quota.
+  * **7 Days (`week`):** 350,000 weekly reads quota, 140,000 writes quota.
+  * **30 Days (`month`):** 1,500,000 monthly reads quota, 600,000 writes quota.
+  * **Custom Range (`custom`):** Custom Start/End date picker that scales quotas dynamically (`N × 50k reads`, `N × 20k writes`).
+* **Operation Timeline:**
+  * Interactive Area Stream and Bar Column charts plotting Reads (Purple), Writes (Cyan), and Deletes (Rose) over time.
+* **User Management (`/in-out-manager/users`):**
+  * Search, sort, inspect subcollections, view balances, and safely delete accounts.
+* **Trash Bin & Recovery (`/in-out-manager/trash`):**
+  * Centralized trash bin with 30-day auto-expiry, item restoration, and permanent purge.
+* **AI & External API Keys (`/in-out-manager/api-keys`):**
+  * Secure API key generation with customizable rate limits and scopes for AI assistants and integrations.
+* **System Settings & Danger Zone (`/in-out-manager/settings`):**
+  * App version tracking, maintenance mode toggle, master password change, and re-authenticated "Delete All Data" action.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Framework** | [React 19](https://react.dev/) |
-| **Bundler** | [Vite 8](https://vite.dev/) |
-| **Styling** | [Tailwind CSS 4](https://tailwindcss.com/) |
-| **Backend / Auth** | [Firebase 12](https://firebase.google.com/) (Authentication + Firestore) |
-| **Charts** | [Recharts 3](https://recharts.org/) (BarChart, PieChart, LineChart) |
-| **Animations** | [Framer Motion 12](https://www.framer.com/motion/) |
-| **Icons** | [Lucide React](https://lucide.dev/) |
-| **Routing** | [React Router DOM 7](https://reactrouter.com/) |
-| **Date Utilities** | [date-fns 4](https://date-fns.org/) |
-| **Notifications** | [react-hot-toast 2](https://react-hot-toast.com/) |
-| **Linting** | ESLint 10 with React Hooks & React Refresh plugins |
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Frontend Framework** | [React 19](https://react.dev/) | Component architecture & state management |
+| **Build Tool** | [Vite 8](https://vite.dev/) (Rolldown) | Lightning-fast HMR & manual chunk bundling |
+| **Styling** | [Tailwind CSS 4](https://tailwindcss.com/) | Modern utility styling & glassmorphic aesthetics |
+| **Database & Auth** | [Firebase 12](https://firebase.google.com/) | Firestore with multi-tab persistence & Firebase Auth |
+| **Charts & Visuals** | [Recharts 3](https://recharts.org/) | Area, Bar, Line, and Donut telemetry charts |
+| **Animations** | [Framer Motion 12](https://www.framer.com/motion/) | Smooth layout transitions & micro-interactions |
+| **Icons** | [Lucide React](https://lucide.dev/) | Interface iconography |
+| **Routing** | [React Router DOM 7](https://reactrouter.com/) | Route code-splitting with nested admin layouts |
+| **Notifications** | [react-hot-toast](https://react-hot-toast.com/) | Non-intrusive action toasts |
 
 ---
 
@@ -83,35 +106,48 @@ A modern, full-featured personal budget management web app built with **React 19
 
 ```
 in-out-budget-manager/
-├── public/
-│   ├── favicon.svg
-│   └── icons.svg
+├── public/                     # Static assets (favicons, icons)
 ├── src/
-│   ├── components/
-│   │   ├── AddAccountModal.jsx      # Modal to create a new account
-│   │   ├── AddTransactionModal.jsx   # Modal for income / expense entry
-│   │   ├── ConfirmModal.jsx          # Reusable delete confirmation dialog
-│   │   ├── DashboardDetailModal.jsx  # Drill-down modal for stat cards
-│   │   ├── Navigation.jsx            # Sticky navbar with mobile drawer
-│   │   └── TransferModal.jsx         # Single & split transfer modal
-│   ├── contexts/
-│   │   └── AuthContext.jsx           # Auth state, user profile, currency
-│   ├── firebase/
-│   │   ├── firebase.js               # Firebase app initialization
-│   │   └── firestoreService.js       # All Firestore CRUD operations
-│   ├── pages/
-│   │   ├── Accounts.jsx              # Profile settings + account management
-│   │   ├── Dashboard.jsx             # Main dashboard with charts & stats
-│   │   ├── Login.jsx                 # Login / signup / password reset
-│   │   ├── Onboarding.jsx            # Post-signup verification & setup
-│   │   └── Transactions.jsx          # Transaction history with filters
-│   ├── App.jsx                       # Routes, private route guard, toaster
-│   ├── index.css                     # Tailwind CSS entry point
-│   └── main.jsx                      # React DOM entry point
-├── .env                              # Environment variables (not committed)
-├── index.html                        # HTML shell
-├── vite.config.js                    # Vite + Tailwind CSS plugin config
-├── eslint.config.js                  # ESLint configuration
+│   ├── components/             # Reusable UI components & modals
+│   │   ├── AddAccountModal.jsx
+│   │   ├── AddTransactionModal.jsx
+│   │   ├── ConfirmModal.jsx
+│   │   ├── DashboardDetailModal.jsx
+│   │   ├── Navigation.jsx
+│   │   └── TransferModal.jsx
+│   ├── contexts/               # React Context providers
+│   │   ├── AuthContext.jsx     # User authentication & registration throttle
+│   │   └── AdminContext.jsx    # Admin portal authentication & session management
+│   ├── firebase/               # Firebase configuration & backend services
+│   │   ├── firebase.js         # Multi-tab persistent cache & App Check initialization
+│   │   ├── firestoreService.js # Rate-limited & sanitized user Firestore operations
+│   │   └── adminService.js     # Parallelized DB analytics & admin operations
+│   ├── pages/                  # Application views
+│   │   ├── Accounts.jsx        # Account management & balance trends
+│   │   ├── Dashboard.jsx       # Financial charts & quick actions
+│   │   ├── Login.jsx           # User authentication form
+│   │   ├── Onboarding.jsx      # Mandatory phone & verification setup
+│   │   ├── Transactions.jsx    # Transaction history & filtering
+│   │   └── admin/              # Dedicated Admin Portal routes
+│   │       ├── AdminDashboard.jsx # Database Observability & storage analytics
+│   │       ├── AdminUsers.jsx     # User management & account details
+│   │       ├── AdminTrash.jsx     # Soft-deleted trash bin & restoration
+│   │       ├── AdminApiKeys.jsx   # AI & external API key management
+│   │       ├── AdminSettings.jsx  # System settings & Danger Zone
+│   │       ├── AdminLayout.jsx    # Admin navigation & responsive sidebar
+│   │       └── AdminLogin.jsx     # Admin authentication portal
+│   ├── utils/                  # Security & performance utilities
+│   │   ├── deviceFingerprint.js # Canvas fingerprinting & registration limiter
+│   │   ├── rateLimiter.js       # Sliding-window transaction limiter (10/min)
+│   │   ├── reauthGuard.js       # High-impact re-authentication check
+│   │   ├── sanitizer.js         # Input sanitization against XSS
+│   │   └── telemetryTracker.js  # Client-side DB operation logger
+│   ├── App.jsx                 # Route code-splitting & lazy loading
+│   └── main.jsx                # Application root
+├── firestore.rules             # Hardened Firestore security rules
+├── vite.config.js              # Vendor chunk isolation & bundle configuration
+├── .gitignore                  # Strict database privacy & key protection
+├── .env.example                # Environment variable setup template
 └── package.json
 ```
 
@@ -119,89 +155,70 @@ in-out-budget-manager/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 1. Prerequisites
+* [Node.js](https://nodejs.org/) (version 18 or higher)
+* [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/)
+* A [Firebase Project](https://console.firebase.google.com/) with **Authentication** (Email/Password & Google) and **Cloud Firestore** enabled.
 
-- **Node.js** ≥ 18
-- **npm** ≥ 9
-- A [Firebase project](https://console.firebase.google.com/) with **Authentication** (Email/Password + Google) and **Firestore** enabled
-
-### Installation
-
+### 2. Clone the Repository
 ```bash
-# Clone the repository
-git clone https://github.com/Madhankumar-E-G-D/in-out-budget-manager.git
+git clone https://github.com/madhankumaregd/in-out-budget-manager.git
 cd in-out-budget-manager
+```
 
-# Install dependencies
+### 3. Install Dependencies
+```bash
 npm install
 ```
 
-### Environment Variables
-
-Create a `.env` file in the project root with your Firebase config:
-
+### 4. Configure Environment Variables
+Copy the `.env.example` file to `.env`:
+```bash
+cp .env.example .env
+```
+Fill in your Firebase credentials in `.env`:
 ```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_CURRENCY_SYMBOL=₹
 ```
 
-> **Note:** All variables must be prefixed with `VITE_` for Vite to expose them to the client.
+> **Security Note:** `.env` and all secret key files are strictly ignored by `.gitignore` to prevent database credential leaks.
 
-### Run Locally
+### 5. Deploy Firestore Security Rules
+Deploy the hardened rules from `firestore.rules` using the Firebase CLI or copy them directly into the **Firebase Console -> Firestore Database -> Rules**:
+```bash
+firebase deploy --only firestore:rules
+```
 
+### 6. Run the Development Server
 ```bash
 npm run dev
 ```
+* **User Application:** `http://localhost:5173`
+* **Admin Portal:** `http://localhost:5173/in-out-manager` (Default admin password: `admin123` or configurable in Admin Settings)
 
-The app will start at `http://localhost:5173` (default Vite port).
+### 7. Build for Production
+```bash
+npm run build
+```
+Creates an optimized, chunk-split production bundle in `dist/`.
 
 ---
 
-## 📜 Available Scripts
+## 🔒 Privacy & Security Assurance
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the Vite dev server with HMR |
-| `npm run build` | Build for production into `dist/` |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint across the project |
-
----
-
-## 🗄️ Firestore Data Model
-
-```
-users/{userId}
-├── displayName: string
-├── email: string
-├── phone: string
-├── currency: "INR" | "USD" | "EUR" | "GBP"
-├── createdAt: timestamp
-│
-├── accounts/{accountId}
-│   ├── name: string
-│   ├── type: "bank" | "savings" | "credit_card" | "other"
-│   ├── balance: number
-│   ├── currency: string
-│   └── createdAt: timestamp
-│
-└── transactions/{transactionId}
-    ├── type: "income" | "expense" | "transfer"
-    ├── amount: number
-    ├── category: string
-    ├── fromAccountId: string
-    ├── toAccountId: string (transfers only)
-    ├── date: timestamp
-    ├── description: string
-    └── createdAt: timestamp
-```
+All sensitive credentials, service accounts, and environment files are strictly excluded from version control:
+* `.env*` files are ignored via `.gitignore`.
+* A clean `.env.example` template is provided for onboarding.
+* Firestore rules enforce schema validation, positive amount checks, and authenticated owner writes.
+* Device fingerprint throttles and rate limits prevent mass account creation and spam.
 
 ---
 
 ## 📄 License
-
-This project is private. See the repository settings for access.
+This project is open source and available under the [MIT License](LICENSE).
