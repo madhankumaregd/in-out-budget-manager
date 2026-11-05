@@ -410,13 +410,6 @@ export const updateTransaction = async (userId, transactionId, updates) => {
   if (!userId || !transactionId)
     throw new Error("User ID and Transaction ID are required");
 
-  // Sanitize text updates
-  const sanitized = { ...updates };
-  if (sanitized.description)
-    sanitized.description = sanitizeString(sanitized.description);
-  if (sanitized.category)
-    sanitized.category = sanitizeString(sanitized.category);
-
   const transactionRef = doc(
     db,
     "users",
@@ -424,7 +417,174 @@ export const updateTransaction = async (userId, transactionId, updates) => {
     "transactions",
     transactionId
   );
-  await updateDoc(transactionRef, sanitized);
+  const txDoc = await getDoc(transactionRef);
+  if (!txDoc.exists()) {
+    throw new Error("Transaction not found");
+  }
+  const oldTx = txDoc.data();
+
+  // Validate amount if provided
+  let newAmount = oldTx.amount;
+  if (updates.amount !== undefined) {
+    const amountCheck = validateAmount(updates.amount);
+    if (!amountCheck.valid) throw new Error(amountCheck.error);
+    newAmount = amountCheck.value;
+  }
+
+  // Validate type
+  const newType = updates.type || oldTx.type;
+  if (!validateTransactionType(newType)) {
+    throw new Error("Invalid transaction type");
+  }
+
+  const newFromAccountId = updates.fromAccountId || oldTx.fromAccountId;
+  const newToAccountId =
+    newType === "transfer"
+      ? updates.toAccountId !== undefined
+        ? updates.toAccountId
+        : oldTx.toAccountId
+      : null;
+
+  if (newType === "transfer") {
+    if (!newFromAccountId || !newToAccountId) {
+      throw new Error("Transfer requires both source and destination accounts");
+    }
+    if (newFromAccountId === newToAccountId) {
+      throw new Error("Source and destination accounts must be different");
+    }
+  }
+
+  // Sanitize text fields
+  const description =
+    updates.description !== undefined
+      ? sanitizeString(updates.description)
+      : oldTx.description || "";
+  const category =
+    newType === "transfer"
+      ? "Transfer"
+      : updates.category !== undefined
+      ? sanitizeString(updates.category)
+      : oldTx.category || "Other";
+
+  const newDate = updates.date
+    ? new Date(updates.date)
+    : oldTx.date?.toDate?.() || new Date();
+
+  // Check if balance adjustment is needed
+  const financialFieldsChanged =
+    newAmount !== oldTx.amount ||
+    newType !== oldTx.type ||
+    newFromAccountId !== oldTx.fromAccountId ||
+    newToAccountId !== (oldTx.toAccountId || null);
+
+  if (!financialFieldsChanged) {
+    // Only metadata changed (description, category, date)
+    const updatePayload = {
+      description,
+      category,
+      date: Timestamp.fromDate(newDate),
+      updatedAt: Timestamp.now(),
+    };
+    await updateDoc(transactionRef, updatePayload);
+    return { id: transactionId, ...oldTx, ...updatePayload, date: newDate };
+  }
+
+  // Collect all affected accounts
+  const affectedAccountIds = [
+    ...new Set(
+      [
+        oldTx.fromAccountId,
+        oldTx.toAccountId,
+        newFromAccountId,
+        newToAccountId,
+      ].filter(Boolean)
+    ),
+  ];
+
+  // Fetch all affected accounts concurrently
+  const accountSnaps = await Promise.all(
+    affectedAccountIds.map((accId) =>
+      getDoc(doc(db, "users", userId, "accounts", accId))
+    )
+  );
+
+  const accountMap = {};
+  accountSnaps.forEach((snap, idx) => {
+    const accId = affectedAccountIds[idx];
+    if (snap.exists()) {
+      accountMap[accId] = {
+        name: snap.data().name || accId,
+        balance: snap.data().balance || 0,
+      };
+    } else {
+      accountMap[accId] = { name: accId, balance: 0 };
+    }
+  });
+
+  // Calculate balance deltas for each account
+  const delta = {};
+  affectedAccountIds.forEach((accId) => {
+    delta[accId] = 0;
+  });
+
+  // 1. Revert old transaction
+  if (oldTx.type === "income" && oldTx.fromAccountId) {
+    delta[oldTx.fromAccountId] -= oldTx.amount;
+  } else if (oldTx.type === "expense" && oldTx.fromAccountId) {
+    delta[oldTx.fromAccountId] += oldTx.amount;
+  } else if (oldTx.type === "transfer") {
+    if (oldTx.fromAccountId) delta[oldTx.fromAccountId] += oldTx.amount;
+    if (oldTx.toAccountId) delta[oldTx.toAccountId] -= oldTx.amount;
+  }
+
+  // 2. Apply new transaction
+  if (newType === "income") {
+    delta[newFromAccountId] += newAmount;
+  } else if (newType === "expense") {
+    delta[newFromAccountId] += newAmount;
+  } else if (newType === "transfer") {
+    delta[newFromAccountId] -= newAmount;
+    delta[newToAccountId] += newAmount;
+  }
+
+  // 3. Balance guard check: ensure no account balance becomes negative
+  for (const accId of affectedAccountIds) {
+    const currentBal = accountMap[accId]?.balance || 0;
+    const finalBal = currentBal + (delta[accId] || 0);
+    if (finalBal < 0 && (accId === newFromAccountId || delta[accId] < 0)) {
+      const accName = accountMap[accId]?.name || "Account";
+      throw new Error(
+        `Insufficient balance in "${accName}"! Action would reduce balance from ${currentBal.toFixed(2)} to ${finalBal.toFixed(2)}.`
+      );
+    }
+  }
+
+  // 4. Batch commit account balance updates and transaction update
+  const batch = writeBatch(db);
+
+  for (const accId of affectedAccountIds) {
+    if (delta[accId] !== 0) {
+      const accRef = doc(db, "users", userId, "accounts", accId);
+      const newBal = (accountMap[accId]?.balance || 0) + delta[accId];
+      batch.update(accRef, { balance: newBal });
+    }
+  }
+
+  const txUpdatePayload = {
+    type: newType,
+    amount: newAmount,
+    category,
+    fromAccountId: newFromAccountId,
+    toAccountId: newType === "transfer" ? newToAccountId : null,
+    date: Timestamp.fromDate(newDate),
+    description,
+    updatedAt: Timestamp.now(),
+  };
+
+  batch.update(transactionRef, txUpdatePayload);
+  await batch.commit();
+
+  return { id: transactionId, ...txUpdatePayload, date: newDate };
 };
 
 export const deleteTransaction = async (userId, transactionId) => {
