@@ -12,6 +12,7 @@ import {
   Settings,
   Menu,
   X,
+  Shield,
 } from "lucide-react";
 
 const Navigation = () => {
@@ -21,6 +22,10 @@ const Navigation = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  const isAdmin =
+    userProfile?.email?.toLowerCase() === "egdmadhankumar@gmail.com" ||
+    userProfile?.role === "admin";
 
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -98,6 +103,20 @@ const Navigation = () => {
                   </Link>
                 );
               })}
+
+              {isAdmin && (
+                <Link to="/in-out-manager">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-sm font-semibold transition shadow-xs"
+                    title="Open Administrator Portal"
+                  >
+                    <Shield className="w-4 h-4 text-purple-600" />
+                    <span>Admin Portal</span>
+                  </motion.div>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -150,6 +169,17 @@ const Navigation = () => {
                     <Settings className="w-4 h-4" />
                     <span>Profile Settings</span>
                   </button>
+
+                  {isAdmin && (
+                    <Link
+                      to="/in-out-manager"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-purple-700 hover:bg-purple-50 flex items-center space-x-3 transition-colors font-medium"
+                    >
+                      <Shield className="w-4 h-4 text-purple-600" />
+                      <span>Admin Control Center</span>
+                    </Link>
+                  )}
 
                   <hr className="my-1" />
 
@@ -208,6 +238,20 @@ const Navigation = () => {
                   </Link>
                 );
               })}
+
+              {isAdmin && (
+                <Link to="/in-out-manager">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-sm font-semibold transition shadow-xs"
+                    title="Open Administrator Portal"
+                  >
+                    <Shield className="w-4 h-4 text-purple-600" />
+                    <span>Admin Portal</span>
+                  </motion.div>
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

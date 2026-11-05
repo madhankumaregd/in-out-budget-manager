@@ -19,9 +19,159 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 
 import { db, auth } from "./firebase";
 import { getTelemetryData } from "../utils/telemetryTracker";
 
-// ─── ADMIN SETTINGS ────────────────────────────────────────────
+// ─── ADMIN SETTINGS & AUTHORIZATION ────────────────────────────
 const ADMIN_COLLECTION = "adminConfig";
 const ADMIN_DOC_ID = "settings";
+export const DEFAULT_PRIMARY_ADMIN = "egdmadhankumar@gmail.com";
+
+/**
+ * Retrieves authorized admins list and primary admin.
+ * Initializes default primary admin as egdmadhankumar@gmail.com if not configured.
+ */
+export const getAdminAuthList = async () => {
+  try {
+    const ref = doc(db, ADMIN_COLLECTION, ADMIN_DOC_ID);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      const primaryAdmin = (data?.primaryAdmin || DEFAULT_PRIMARY_ADMIN).toLowerCase().trim();
+      let adminEmails = Array.isArray(data?.adminEmails)
+        ? data.adminEmails.map((e) => e.toLowerCase().trim())
+        : [primaryAdmin];
+      if (!adminEmails.includes(primaryAdmin)) {
+        adminEmails.push(primaryAdmin);
+      }
+      return { primaryAdmin, adminEmails };
+    }
+
+    // Default init
+    const initialConfig = {
+      primaryAdmin: DEFAULT_PRIMARY_ADMIN.toLowerCase(),
+      adminEmails: [DEFAULT_PRIMARY_ADMIN.toLowerCase()],
+      appVersion: "1.0.0",
+      appName: "IN & OUT Budget Manager",
+      createdAt: Timestamp.now(),
+      maintenanceMode: false,
+    };
+    await setDoc(ref, initialConfig);
+    return {
+      primaryAdmin: initialConfig.primaryAdmin,
+      adminEmails: initialConfig.adminEmails,
+    };
+  } catch (error) {
+    console.error("Error reading admin auth list:", error);
+    return {
+      primaryAdmin: DEFAULT_PRIMARY_ADMIN.toLowerCase(),
+      adminEmails: [DEFAULT_PRIMARY_ADMIN.toLowerCase()],
+    };
+  }
+};
+
+/**
+ * Checks if a given email or UID has admin privileges.
+ */
+export const isAuthorizedAdmin = async (emailOrUid) => {
+  if (!emailOrUid) return false;
+  const normalized = emailOrUid.toLowerCase().trim();
+  const { primaryAdmin, adminEmails } = await getAdminAuthList();
+  return (
+    normalized === primaryAdmin ||
+    normalized === DEFAULT_PRIMARY_ADMIN.toLowerCase() ||
+    adminEmails.includes(normalized)
+  );
+};
+
+/**
+ * Adds a new admin ID/Email to authorized list.
+ */
+export const addAdminUser = async (newEmailOrUid) => {
+  if (!newEmailOrUid) throw new Error("Please provide a valid Email or User ID");
+  const clean = newEmailOrUid.toLowerCase().trim();
+  const ref = doc(db, ADMIN_COLLECTION, ADMIN_DOC_ID);
+  const { primaryAdmin, adminEmails } = await getAdminAuthList();
+
+  if (adminEmails.includes(clean) || primaryAdmin === clean) {
+    throw new Error(`"${clean}" already has administrator privileges.`);
+  }
+
+  const updatedList = [...adminEmails, clean];
+  await updateDoc(ref, {
+    adminEmails: updatedList,
+    updatedAt: Timestamp.now(),
+  });
+  return updatedList;
+};
+
+/**
+ * Removes a delegated admin from authorized list.
+ * Primary admin cannot be removed.
+ */
+export const removeAdminUser = async (emailOrUidToRemove) => {
+  if (!emailOrUidToRemove) return;
+  const clean = emailOrUidToRemove.toLowerCase().trim();
+  const { primaryAdmin, adminEmails } = await getAdminAuthList();
+
+  if (clean === primaryAdmin) {
+    throw new Error(
+      `Cannot remove primary administrator (${primaryAdmin}). You must switch primary admin ownership first.`
+    );
+  }
+
+  const updatedList = adminEmails.filter((e) => e !== clean);
+  const ref = doc(db, ADMIN_COLLECTION, ADMIN_DOC_ID);
+  await updateDoc(ref, {
+    adminEmails: updatedList,
+    updatedAt: Timestamp.now(),
+  });
+  return updatedList;
+};
+
+/**
+ * Transfers primary admin ownership to another email or user ID.
+ * The current admin loses their admin privileges!
+ */
+export const transferAdminOwnership = async (newPrimaryAdmin, currentAdmin) => {
+  if (!newPrimaryAdmin) throw new Error("Please specify the new administrator");
+  const newClean = newPrimaryAdmin.toLowerCase().trim();
+  const currentClean = (currentAdmin || "").toLowerCase().trim();
+
+  if (newClean === currentClean) {
+    throw new Error("New administrator must be different from current administrator.");
+  }
+
+  const ref = doc(db, ADMIN_COLLECTION, ADMIN_DOC_ID);
+  const { adminEmails } = await getAdminAuthList();
+
+  // New list includes newPrimaryAdmin and excludes currentAdmin
+  const updatedAdmins = adminEmails
+    .filter((e) => e !== currentClean)
+    .concat(newClean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+
+  await updateDoc(ref, {
+    primaryAdmin: newClean,
+    adminEmails: updatedAdmins,
+    ownershipTransferredAt: Timestamp.now(),
+    transferredFrom: currentClean,
+    updatedAt: Timestamp.now(),
+  });
+
+  return { newPrimaryAdmin: newClean, adminEmails: updatedAdmins };
+};
+
+/**
+ * Toggles a user's status between "active" and "disabled".
+ */
+export const toggleUserStatus = async (userId, currentStatus) => {
+  const newStatus = currentStatus === "disabled" ? "active" : "disabled";
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, {
+    status: newStatus,
+    disabled: newStatus === "disabled",
+    statusUpdatedAt: Timestamp.now(),
+  });
+  return newStatus;
+};
 
 export const getAdminSettings = async () => {
   try {
@@ -30,6 +180,8 @@ export const getAdminSettings = async () => {
     if (snap.exists()) return snap.data();
     // Initialize default admin settings if they don't exist
     const defaults = {
+      primaryAdmin: DEFAULT_PRIMARY_ADMIN.toLowerCase(),
+      adminEmails: [DEFAULT_PRIMARY_ADMIN.toLowerCase()],
       appVersion: "1.0.0",
       appName: "IN & OUT Budget Manager",
       createdAt: Timestamp.now(),
@@ -79,6 +231,11 @@ export const getAllUsers = async () => {
       accountsSnap.docs.forEach((acc) => {
         totalBalance += acc.data().balance || 0;
       });
+
+      const raw = userDoc.data();
+      const status = raw.status || (raw.disabled ? "disabled" : "active");
+      userData.status = status;
+      userData.disabled = Boolean(raw.disabled || status === "disabled");
 
       userData.accountCount = accountsSnap.size;
       userData.transactionCount = txSnap.data().count;

@@ -359,3 +359,4 @@ const AccountDetailModal = ({
 };
 
 export default AccountDetailModal;
+

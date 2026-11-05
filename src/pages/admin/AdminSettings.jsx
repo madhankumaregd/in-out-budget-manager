@@ -1,23 +1,64 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getAdminSettings,
   updateAdminSettings,
   changeAdminPassword,
   deleteAllUsers,
-  getDatabaseStats,
 } from "../../firebase/adminService";
+import { useAdmin } from "../../contexts/AdminContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Settings, Lock, Eye, EyeOff, AlertTriangle, Loader,
-  Save, Shield, Database, Trash2, RefreshCw, Info,
-  CheckCircle, XCircle, ToggleLeft, ToggleRight,
+  Settings,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  Loader,
+  Save,
+  Shield,
+  Trash2,
+  RefreshCw,
+  Info,
+  CheckCircle,
+  XCircle,
+  ToggleLeft,
+  ToggleRight,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Crown,
+  ArrowRightLeft,
+  X,
+  Mail,
+  Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const AdminSettings = () => {
+  const navigate = useNavigate();
+  const {
+    adminEmail,
+    primaryAdmin,
+    adminEmails,
+    isPrimaryAdmin,
+    addNewAdmin,
+    removeAdmin,
+    transferAdmin,
+    refreshAdmins,
+  } = useAdmin();
+
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Admin access management states
+  const [newAdminInput, setNewAdminInput] = useState("");
+  const [addingAdmin, setAddingAdmin] = useState(false);
+  const [transferTarget, setTransferTarget] = useState("");
+  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [revokingEmail, setRevokingEmail] = useState(null);
 
   // Version & App settings
   const [appVersion, setAppVersion] = useState("");
@@ -49,10 +90,67 @@ const AdminSettings = () => {
       setAppVersion(data?.appVersion || "");
       setAppName(data?.appName || "");
       setMaintenanceMode(data?.maintenanceMode || false);
+      if (refreshAdmins) await refreshAdmins();
     } catch (error) {
       console.error("Error:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ─── Add a new administrator ───
+  const handleAddNewAdmin = async (e) => {
+    e.preventDefault();
+    if (!newAdminInput.trim()) {
+      toast.error("Please enter a valid email or user ID");
+      return;
+    }
+    setAddingAdmin(true);
+    try {
+      await addNewAdmin(newAdminInput.trim());
+      toast.success(`Admin access granted to "${newAdminInput.trim()}".`);
+      setNewAdminInput("");
+      await fetchSettings();
+    } catch (err) {
+      toast.error(err.message || "Failed to add administrator");
+    } finally {
+      setAddingAdmin(false);
+    }
+  };
+
+  // ─── Revoke delegated admin access ───
+  const handleRevokeAdmin = async (emailToRemove) => {
+    setRevokingEmail(emailToRemove);
+    try {
+      await removeAdmin(emailToRemove);
+      toast.success(`Admin access revoked for "${emailToRemove}".`);
+      await fetchSettings();
+    } catch (err) {
+      toast.error(err.message || "Failed to remove administrator");
+    } finally {
+      setRevokingEmail(null);
+    }
+  };
+
+  // ─── Transfer primary admin ownership and lose own power ───
+  const handleTransferOwnership = async () => {
+    if (!transferTarget.trim()) {
+      toast.error("Please specify the recipient administrator email or ID");
+      return;
+    }
+    setTransferring(true);
+    try {
+      await transferAdmin(transferTarget.trim());
+      toast.success(
+        `Admin power successfully transferred to "${transferTarget.trim()}". You have relinquished your admin privileges.`,
+        { duration: 6000 }
+      );
+      setShowTransferConfirm(false);
+      // Navigate out of admin console to user app
+      navigate("/dashboard");
+    } catch (err) {
+      toast.error(err.message || "Failed to transfer admin ownership");
+      setTransferring(false);
     }
   };
 
@@ -83,11 +181,9 @@ const AdminSettings = () => {
       toast.error("Passwords do not match");
       return;
     }
-    // Strength check
     const hasUpper = /[A-Z]/.test(newPass);
     const hasLower = /[a-z]/.test(newPass);
     const hasNumber = /[0-9]/.test(newPass);
-    const hasSpecial = /[^A-Za-z0-9]/.test(newPass);
     if (!hasUpper || !hasLower || !hasNumber) {
       toast.error("Password must include uppercase, lowercase, and numbers");
       return;
@@ -148,15 +244,211 @@ const AdminSettings = () => {
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-4xl">
-      {/* Header */}
+      {/* ─── Header ─── */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
-        <p className="text-gray-500 mt-1 text-sm">
-          Application configuration & security
+        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          Admin Settings & Delegation
+        </h1>
+        <p className="text-gray-400 mt-1 text-sm">
+          Manage administrator roles, grant access to new IDs, transfer admin ownership, and configure application settings
         </p>
       </div>
 
-      {/* App Settings Section */}
+      {/* ─── 1. ADMIN ACCESS & DELEGATION (KEY USER REQUIREMENT) ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-white/[0.05] to-purple-500/[0.03] backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 sm:p-7 shadow-xl"
+      >
+        <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-white/5">
+          <div className="w-11 h-11 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 rounded-2xl flex items-center justify-center border border-purple-500/30 shadow-inner">
+            <Shield className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              Administrator Access & Role Delegation
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Control authorized administrator IDs and ownership rights
+            </p>
+          </div>
+        </div>
+
+        {/* Current Admin Status Banner */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-purple-300 mb-1">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span>PRIMARY ADMINISTRATOR</span>
+            </div>
+            <p className="text-sm font-bold text-white font-mono break-all">
+              {primaryAdmin || "egdmadhankumar@gmail.com"}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Holds master administrative authority
+            </p>
+          </div>
+
+          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-gray-400 mb-1">
+              <UserCheck className="w-4 h-4 text-emerald-400" />
+              <span>CURRENT LOGGED-IN SESSION</span>
+            </div>
+            <p className="text-sm font-bold text-white font-mono break-all">
+              {adminEmail || "egdmadhankumar@gmail.com"}
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                isPrimaryAdmin
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                  : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+              }`}>
+                {isPrimaryAdmin ? "Primary Owner" : "Delegated Administrator"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* List of Authorized Admins */}
+        <div className="mb-6">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+            Authorized Administrator IDs ({adminEmails?.length || 1})
+          </label>
+          <div className="space-y-2">
+            {adminEmails?.map((email) => {
+              const isEmailPrimary = email.toLowerCase() === (primaryAdmin || "").toLowerCase();
+              return (
+                <div
+                  key={email}
+                  className="flex items-center justify-between p-3.5 bg-white/5 border border-white/5 rounded-xl hover:bg-white/[0.07] transition"
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isEmailPrimary
+                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                          : "bg-purple-500/20 text-purple-400"
+                      }`}
+                    >
+                      {isEmailPrimary ? (
+                        <Crown className="w-4 h-4" />
+                      ) : (
+                        <Shield className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate font-mono">
+                        {email}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {isEmailPrimary
+                          ? "Primary Owner (Full control)"
+                          : "Delegated Admin"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!isEmailPrimary && (
+                    <button
+                      onClick={() => handleRevokeAdmin(email)}
+                      disabled={revokingEmail === email}
+                      className="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition border border-red-500/20 disabled:opacity-50"
+                      title="Revoke admin access"
+                    >
+                      {revokingEmail === email ? "Revoking..." : "Revoke Access"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Feature 1: Add a New Admin ── */}
+        <div className="p-4 bg-white/5 rounded-2xl border border-white/5 mb-6">
+          <h3 className="text-sm font-bold text-white mb-1 flex items-center space-x-2">
+            <UserPlus className="w-4 h-4 text-purple-400" />
+            <span>Add a New Admin</span>
+          </h3>
+          <p className="text-xs text-gray-400 mb-3">
+            Grant administrative privileges to another user email address or Firebase User ID
+          </p>
+
+          <form onSubmit={handleAddNewAdmin} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                value={newAdminInput}
+                onChange={(e) => setNewAdminInput(e.target.value)}
+                placeholder="Enter email (e.g. colleague@gmail.com) or User ID..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder:text-gray-500 text-sm focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={addingAdmin || !newAdminInput.trim()}
+              className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-semibold transition shadow-md shadow-purple-600/30 disabled:opacity-50 flex items-center justify-center space-x-2 shrink-0"
+            >
+              {addingAdmin ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Grant Admin Access</span>
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* ── Feature 2: Switch Admin to Other ID & Lose Admin Power (Transfer Ownership) ── */}
+        <div className="p-5 bg-amber-500/[0.04] rounded-2xl border border-amber-500/20">
+          <div className="flex items-start space-x-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+              <ArrowRightLeft className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-300">
+                Switch Admin to Other ID & Relinquish Power
+              </h3>
+              <p className="text-xs text-amber-400/80 mt-1">
+                Transfer primary admin ownership to another email or user ID.
+                <strong className="text-amber-200"> You will immediately lose your own administrator privileges </strong>
+                and will be signed out of this admin portal.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 mt-4">
+            <input
+              type="text"
+              value={transferTarget}
+              onChange={(e) => setTransferTarget(e.target.value)}
+              placeholder="Enter recipient admin email or User ID..."
+              className="flex-1 px-4 py-2.5 bg-slate-900 border border-amber-500/30 rounded-xl text-white placeholder:text-gray-500 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (!transferTarget.trim()) {
+                  toast.error("Please enter the email/ID of the new admin");
+                  return;
+                }
+                setShowTransferConfirm(true);
+              }}
+              disabled={!transferTarget.trim()}
+              className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-xl text-sm font-semibold transition shadow-md shadow-amber-600/20 disabled:opacity-50 flex items-center justify-center space-x-2 shrink-0"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              <span>Switch Admin & Relinquish</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ─── 2. Application Settings ─── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -237,7 +529,7 @@ const AdminSettings = () => {
         </div>
       </motion.div>
 
-      {/* Password Change Section */}
+      {/* ─── 3. Password Change Section ─── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -249,13 +541,12 @@ const AdminSettings = () => {
             <Lock className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Change Password</h2>
+            <h2 className="text-lg font-semibold text-white">Change Admin Password</h2>
             <p className="text-xs text-gray-500">Update your account credentials</p>
           </div>
         </div>
 
         <form onSubmit={handleChangePassword} className="space-y-5">
-          {/* Current Password */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Current Password
@@ -279,7 +570,6 @@ const AdminSettings = () => {
             </div>
           </div>
 
-          {/* New Password */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               New Password
@@ -302,7 +592,6 @@ const AdminSettings = () => {
                 {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {/* Strength meter */}
             {newPass && (
               <div className="mt-2">
                 <div className="flex space-x-1 mb-1">
@@ -323,30 +612,8 @@ const AdminSettings = () => {
                 </p>
               </div>
             )}
-            {/* Requirements */}
-            <div className="mt-3 space-y-1">
-              {[
-                { check: newPass.length >= 8, text: "At least 8 characters" },
-                { check: /[A-Z]/.test(newPass), text: "Uppercase letter" },
-                { check: /[a-z]/.test(newPass), text: "Lowercase letter" },
-                { check: /[0-9]/.test(newPass), text: "Number" },
-                { check: /[^A-Za-z0-9]/.test(newPass), text: "Special character (recommended)" },
-              ].map((req, i) => (
-                <div key={i} className="flex items-center space-x-2">
-                  {req.check ? (
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <XCircle className="w-3.5 h-3.5 text-gray-600" />
-                  )}
-                  <span className={`text-xs ${req.check ? "text-emerald-400" : "text-gray-600"}`}>
-                    {req.text}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
 
-          {/* Confirm Password */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Confirm New Password
@@ -355,18 +622,9 @@ const AdminSettings = () => {
               type="password"
               value={confirmPass}
               onChange={(e) => setConfirmPass(e.target.value)}
-              className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white focus:outline-none transition-all ${
-                confirmPass && confirmPass !== newPass
-                  ? "border-red-500/50 focus:ring-red-500/20"
-                  : confirmPass && confirmPass === newPass
-                  ? "border-emerald-500/50 focus:ring-emerald-500/20"
-                  : "border-white/10 focus:border-cyan-500/50 focus:ring-cyan-500/20"
-              } focus:ring-2`}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
               required
             />
-            {confirmPass && confirmPass !== newPass && (
-              <p className="text-xs text-red-400 mt-1">Passwords do not match</p>
-            )}
           </div>
 
           <motion.button
@@ -388,7 +646,7 @@ const AdminSettings = () => {
         </form>
       </motion.div>
 
-      {/* Danger Zone */}
+      {/* ─── 4. Danger Zone ─── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -458,6 +716,72 @@ const AdminSettings = () => {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* ─── Transfer Admin Ownership Confirmation Modal ─── */}
+      <AnimatePresence>
+        {showTransferConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowTransferConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-amber-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400">
+                  <ArrowRightLeft className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Transfer Admin Ownership?</h3>
+                  <p className="text-xs text-amber-400 font-semibold">Irreversible Administrative Action</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4 text-xs text-amber-200 leading-relaxed space-y-2">
+                <p>
+                  You are about to transfer Primary Admin power to:
+                </p>
+                <p className="font-mono text-sm font-bold text-white bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 break-all">
+                  {transferTarget}
+                </p>
+                <p className="text-amber-300 font-semibold">
+                  ⚠️ WARNING: Your current administrator account ({adminEmail}) will lose all admin permissions immediately and you will be signed out.
+                </p>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTransferConfirm(false)}
+                  disabled={transferring}
+                  className="flex-1 py-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-300 hover:bg-white/10 transition text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTransferOwnership}
+                  disabled={transferring}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-xl text-sm font-bold transition shadow-lg shadow-rose-600/30 flex items-center justify-center space-x-2"
+                >
+                  {transferring ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>Confirm & Relinquish</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

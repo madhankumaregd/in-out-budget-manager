@@ -19,6 +19,7 @@ import {
   checkRegistrationLimit,
   recordRegistration,
 } from "../utils/deviceFingerprint";
+import toast from "react-hot-toast";
 
 const AuthContext = createContext();
 
@@ -138,7 +139,20 @@ export const AuthProvider = ({ children }) => {
         // Fetch user profile from Firestore
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
-          setUserProfile(userDoc.data());
+          const profileData = userDoc.data();
+          // Check if administrator has disabled this user
+          if (profileData.status === "disabled" || profileData.disabled === true) {
+            await signOut(auth);
+            setCurrentUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            toast.error(
+              "Your account has been disabled by administrator (egdmadhankumar@gmail.com). Access is restricted.",
+              { duration: 6000 }
+            );
+            return;
+          }
+          setUserProfile(profileData);
         } else {
           setUserProfile({
             displayName: user.email?.split("@")[0],

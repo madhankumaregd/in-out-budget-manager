@@ -117,6 +117,10 @@ function App() {
       />
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Routes>
+          {/* ─── Admin Route Aliases ─── */}
+          <Route path="/admin" element={<Navigate to="/in-out-manager" replace />} />
+          <Route path="/admin/*" element={<Navigate to="/in-out-manager" replace />} />
+
           {/* ─── Admin Portal Routes ─── */}
           <Route
             path="/in-out-manager/*"
