@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { createSplitTransfer } from "../firebase/firestoreService";
 import toast from "react-hot-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 
 const TransferModal = ({ accounts, onClose, onSave }) => {
   const { currentUser, currencySymbol } = useAuth();
@@ -125,16 +125,58 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
     }
   };
 
+  const touchStartY = useRef(null);
+
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.targetTouches[0].clientY;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    if (deltaY > 60) {
+      onClose();
+    }
+    touchStartY.current = null;
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 my-4">
-        <h2 className="text-2xl font-bold mb-1">Transfer Between Accounts</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Move money from one or multiple accounts to a destination account.
-        </p>
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-lg w-full p-6 my-4 shadow-2xl border border-gray-100"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Swipe down handle */}
+        <div className="w-full flex justify-center pb-2 cursor-grab active:cursor-grabbing">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+        </div>
+
+        {/* Header with X */}
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-1">
+              Transfer Between Accounts
+            </h2>
+            <p className="text-xs text-gray-500">
+              Move money from one or multiple accounts to a destination account.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition shrink-0"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* Mode toggle */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 my-4">
           <button
             type="button"
             onClick={() => setIsSplitMode(false)}

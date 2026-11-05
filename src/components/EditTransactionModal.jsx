@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { format } from "date-fns";
 import { X, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle } from "lucide-react";
 
 const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }) => {
   const { currencySymbol } = useAuth();
+  const touchStartY = useRef(null);
 
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState("");
@@ -113,11 +114,30 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
   const getAccount = (id) => accounts.find((a) => a.id === id);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
       <div 
         className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchEnd={(e) => {
+          if (touchStartY.current === null) return;
+          const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+          if (deltaY > 60) {
+            onClose();
+          }
+          touchStartY.current = null;
+        }}
       >
+        {/* Swipe down handle */}
+        <div className="w-full flex justify-center pb-2 cursor-grab">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+        </div>
+
         <div className="flex justify-between items-center pb-4 mb-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <div className={`p-2 rounded-xl ${

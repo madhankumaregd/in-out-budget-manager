@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import {
@@ -136,6 +136,7 @@ const DashboardDetailModal = ({
   accounts,
 }) => {
   const { currencySymbol } = useAuth();
+  const touchStartY = useRef(null);
   // When inside "accounts" mode, user can drill into a specific account
   const [selectedAccount, setSelectedAccount] = useState(null);
 
@@ -214,12 +215,28 @@ const DashboardDetailModal = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
+            onTouchStart={(e) => {
+              touchStartY.current = e.touches[0].clientY;
+            }}
+            onTouchEnd={(e) => {
+              if (touchStartY.current === null) return;
+              const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+              if (deltaY > 60) {
+                handleClose();
+              }
+              touchStartY.current = null;
+            }}
             className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col bg-gray-50 rounded-t-3xl overflow-hidden shadow-2xl"
           >
             {/* Gradient header */}
             <div
-              className={`bg-gradient-to-r ${cfg.gradient} px-6 pt-6 pb-8 text-white shrink-0`}
+              className={`bg-gradient-to-r ${cfg.gradient} px-6 pt-3 pb-8 text-white shrink-0`}
             >
+              {/* Swipe down pill handle */}
+              <div className="w-full flex justify-center pb-3 cursor-grab">
+                <div className="w-12 h-1.5 bg-white/40 hover:bg-white/60 rounded-full transition" />
+              </div>
+
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {selectedAccount && mode === "accounts" ? (
