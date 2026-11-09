@@ -182,7 +182,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
             onClick={() => setIsSplitMode(false)}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
               !isSplitMode
-                ? "bg-blue-600 text-white"
+                ? "bg-violet-600 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -193,7 +193,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
             onClick={() => setIsSplitMode(true)}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
               isSplitMode
-                ? "bg-blue-600 text-white"
+                ? "bg-violet-600 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -210,7 +210,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
             <select
               value={toAccountId}
               onChange={(e) => setToAccountId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
               required
             >
               <option value="">Select destination account</option>
@@ -232,7 +232,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
                 <select
                   value={singleFromAccountId}
                   onChange={(e) => setSingleFromAccountId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
                   required
                 >
                   <option value="">Select source account</option>
@@ -269,7 +269,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
                     min="0.01"
                     value={singleAmount}
                     onChange={(e) => setSingleAmount(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-8 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
                     required
                   />
                 </div>
@@ -295,7 +295,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
                         onChange={(e) =>
                           updateSplit(index, "fromAccountId", e.target.value)
                         }
-                        className="w-full px-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                         required
                       >
                         <option value="">Select account</option>
@@ -332,7 +332,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
                           onChange={(e) =>
                             updateSplit(index, "amount", e.target.value)
                           }
-                          className="w-full pl-6 pr-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-6 pr-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                           required
                         />
                       </div>
@@ -352,14 +352,14 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
               <button
                 type="button"
                 onClick={addSplit}
-                className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800"
+                className="mt-3 flex items-center gap-2 text-violet-600 text-sm font-medium hover:text-violet-800"
               >
                 <Plus className="w-4 h-4" />
                 Add another account
               </button>
               {totalSplitAmount > 0 && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-semibold text-blue-700">
+                <div className="mt-3 p-3 bg-violet-50 rounded-lg">
+                  <p className="text-sm font-semibold text-violet-700">
                     Total transfer: {currencySymbol}{totalSplitAmount.toFixed(2)}
                   </p>
                 </div>
@@ -376,7 +376,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
               required
             />
           </div>
@@ -390,7 +390,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
               placeholder="e.g. Monthly savings transfer"
             />
           </div>
@@ -406,7 +406,7 @@ const TransferModal = ({ accounts, onClose, onSave }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 bg-violet-600 text-white py-2 rounded hover:bg-violet-700 disabled:opacity-50"
             >
               {loading ? "Processing..." : "Transfer"}
             </button>

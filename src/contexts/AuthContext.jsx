@@ -13,7 +13,7 @@ import {
   signInWithPhoneNumber,
   linkWithPhoneNumber,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
 import {
   checkRegistrationLimit,
@@ -35,6 +35,23 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authorizedAdmins, setAuthorizedAdmins] = useState(["egdmadhankumar@gmail.com"]);
+
+  // Real-time synchronization of authorized admins list
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "adminConfig", "settings"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const primary = (data.primaryAdmin || "egdmadhankumar@gmail.com").toLowerCase().trim();
+        const list = Array.isArray(data.adminEmails)
+          ? data.adminEmails.map((e) => e.toLowerCase().trim())
+          : [primary];
+        if (!list.includes(primary)) list.push(primary);
+        setAuthorizedAdmins(list);
+      }
+    }, () => {});
+    return unsub;
+  }, []);
 
   const signup = async (email, password, displayName = "") => {
     // ── Device Registration Throttle ──
@@ -129,7 +146,30 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => signOut(auth);
 
-  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+  const resetPassword = async (email) => {
+    if (!email) throw new Error("Please enter your email address");
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check if user is disabled/restricted in Firestore
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", cleanEmail));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const uDoc = snap.docs[0];
+        const data = uDoc.data();
+        if (data.status === "disabled" || data.disabled === true) {
+          throw new Error("Your ID is restricted");
+        }
+      }
+    } catch (err) {
+      if (err.message === "Your ID is restricted") {
+        throw err;
+      }
+    }
+
+    return sendPasswordResetEmail(auth, cleanEmail);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -170,11 +210,19 @@ export const AuthProvider = ({ children }) => {
 
   const currencySymbol = getCurrencySymbol(userProfile?.currency);
 
+  const cleanEmail = (currentUser?.email || userProfile?.email || "").toLowerCase().trim();
+  const isAdmin =
+    cleanEmail === "egdmadhankumar@gmail.com" ||
+    userProfile?.role === "admin" ||
+    authorizedAdmins.includes(cleanEmail);
+
   const value = {
     currentUser,
     userProfile,
     setUserProfile,
     currencySymbol,
+    isAdmin,
+    authorizedAdmins,
     signup,
     login,
     googleSignIn,

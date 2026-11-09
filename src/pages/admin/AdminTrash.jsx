@@ -215,14 +215,14 @@ const AdminTrash = () => {
                     <div
                       className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                         item.itemType === "account"
-                          ? "bg-blue-500/20"
+                          ? "bg-violet-500/20"
                           : "bg-amber-500/20"
                       }`}
                     >
                       <ItemIcon
                         className={`w-5 h-5 ${
                           item.itemType === "account"
-                            ? "text-blue-400"
+                            ? "text-violet-400"
                             : "text-amber-400"
                         }`}
                       />

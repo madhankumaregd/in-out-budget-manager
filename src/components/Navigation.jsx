@@ -14,18 +14,15 @@ import {
   X,
   Shield,
 } from "lucide-react";
+import NotificationDropdown from "./NotificationDropdown";
 
 const Navigation = () => {
-  const { logout, userProfile } = useAuth();
+  const { logout, userProfile, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
-
-  const isAdmin =
-    userProfile?.email?.toLowerCase() === "egdmadhankumar@gmail.com" ||
-    userProfile?.role === "admin";
 
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -74,10 +71,10 @@ const Navigation = () => {
               className="flex items-center space-x-2 cursor-pointer"
               onClick={() => navigate("/dashboard")}
             >
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">₹</span>
               </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                 IN & OUT
               </h1>
             </motion.div>
@@ -93,7 +90,7 @@ const Navigation = () => {
                       whileTap={{ scale: 0.95 }}
                       className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
                         isActive
-                          ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                          ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md"
                           : "text-gray-600 hover:bg-gray-100"
                       }`}
                     >
@@ -109,10 +106,10 @@ const Navigation = () => {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-sm font-semibold transition shadow-xs"
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-sm font-semibold transition shadow-xs"
                     title="Open Administrator Portal"
                   >
-                    <Shield className="w-4 h-4 text-purple-600" />
+                    <Shield className="w-4 h-4 text-violet-600" />
                     <span>Admin Portal</span>
                   </motion.div>
                 </Link>
@@ -121,6 +118,8 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
+            <NotificationDropdown />
+
             <div className="relative" ref={dropdownRef}>
               <motion.button
               whileHover={{ scale: 1.05 }}
@@ -128,7 +127,7 @@ const Navigation = () => {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
               <div className="text-left hidden sm:block">

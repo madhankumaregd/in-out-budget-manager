@@ -33,13 +33,13 @@ const TxRow = ({ t, getAccountName, currencySymbol }) => {
     ? "text-green-600"
     : isExpense
     ? "text-red-600"
-    : "text-blue-600";
+    : "text-violet-600";
 
   const bgClass = isIncome
     ? "bg-green-50"
     : isExpense
     ? "bg-red-50"
-    : "bg-blue-50";
+    : "bg-violet-50";
 
   return (
     <motion.div
@@ -102,8 +102,8 @@ const AccountCard = ({ account, onClick }) => {
       className="w-full text-left p-5 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all flex items-center justify-between group"
     >
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center shrink-0">
-          <Icon className="w-6 h-6 text-indigo-600" />
+        <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl flex items-center justify-center shrink-0">
+          <Icon className="w-6 h-6 text-violet-600" />
         </div>
         <div>
           <p className="font-bold text-gray-800">{account.name}</p>
@@ -113,11 +113,11 @@ const AccountCard = ({ account, onClick }) => {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <p className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <p className="text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
           {currencySymbol}
           {account.balance?.toLocaleString("en-IN")}
         </p>
-        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-violet-600 transition-colors" />
       </div>
     </motion.button>
   );
@@ -180,7 +180,7 @@ const DashboardDetailModal = ({
       subtitle: selectedAccount
         ? `${filteredTx.length} transactions`
         : `${accounts.length} accounts`,
-      gradient: "from-blue-500 to-indigo-600",
+      gradient: "from-violet-600 to-purple-700",
       icon: Wallet,
       label: selectedAccount ? "Account Balance" : "Total Balance",
     },

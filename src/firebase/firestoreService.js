@@ -12,6 +12,7 @@ import {
   Timestamp,
   writeBatch,
   getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -127,6 +128,25 @@ export const deleteAccount = async (userId, accountId) => {
     throw new Error("User ID and Account ID are required");
 
   const accountRef = doc(db, "users", userId, "accounts", accountId);
+  const accSnap = await getDoc(accountRef);
+  if (accSnap.exists()) {
+    const accData = accSnap.data();
+    const trashPayload = {
+      originalId: accountId,
+      itemType: "account",
+      data: accData,
+      userId,
+      title: accData.name || "Account",
+      amount: Number(accData.balance) || 0,
+      type: "account",
+      deletedAt: Timestamp.now(),
+      expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+    };
+    try {
+      await setDoc(doc(db, "users", userId, "trash", accountId), trashPayload);
+      await setDoc(doc(db, "trash", `${userId}_${accountId}`), trashPayload);
+    } catch (_) {}
+  }
   await deleteDoc(accountRef);
 };
 
@@ -138,7 +158,7 @@ export const createTransaction = async (userId, transactionData) => {
   const rateCheck = checkTransactionRate(userId);
   if (!rateCheck.allowed) {
     throw new Error(
-      `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
+      rateCheck.error || `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
     );
   }
 
@@ -261,7 +281,7 @@ export const createSplitTransfer = async (userId, splitData) => {
   const rateCheck = checkTransactionRate(userId);
   if (!rateCheck.allowed) {
     throw new Error(
-      `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
+      rateCheck.error || `Too many transactions. Please wait ${formatCooldown(rateCheck.retryAfterMs)} before adding more.`
     );
   }
 
@@ -628,14 +648,26 @@ export const deleteTransaction = async (userId, transactionId) => {
       getDoc(toAccountRef),
     ]);
 
-    const batch = writeBatch(db);
-    batch.update(fromAccountRef, {
-      balance: (fromAccount.data().balance || 0) + transaction.amount,
-    });
-    batch.update(toAccountRef, {
-      balance: (toAccount.data().balance || 0) - transaction.amount,
-    });
-    await batch.commit();
+    try {
+      if (fromAccount.exists()) {
+        await setDoc(
+          fromAccountRef,
+          {
+            balance: (fromAccount.data().balance || 0) + transaction.amount,
+          },
+          { merge: true }
+        );
+      }
+      if (toAccount.exists()) {
+        await setDoc(
+          toAccountRef,
+          {
+            balance: (toAccount.data().balance || 0) - transaction.amount,
+          },
+          { merge: true }
+        );
+      }
+    } catch (_) {}
   } else {
     const accountRef = doc(
       db,
@@ -644,14 +676,40 @@ export const deleteTransaction = async (userId, transactionId) => {
       "accounts",
       transaction.fromAccountId
     );
-    const account = await getDoc(accountRef);
-
-    const adjustment =
-      transaction.type === "income" ? -transaction.amount : transaction.amount;
-    await updateDoc(accountRef, {
-      balance: (account.data().balance || 0) + adjustment,
-    });
+    try {
+      const account = await getDoc(accountRef);
+      if (account.exists()) {
+        const adjustment =
+          transaction.type === "income" ? -transaction.amount : transaction.amount;
+        await setDoc(
+          accountRef,
+          {
+            balance: (account.data().balance || 0) + adjustment,
+          },
+          { merge: true }
+        );
+      }
+    } catch (_) {}
   }
+
+  // Soft-delete to user trash & global mirror
+  const trashPayload = {
+    originalId: transactionId,
+    itemType: "transaction",
+    data: transaction,
+    userId,
+    title: transaction.description || transaction.category || "Transaction",
+    amount: Number(transaction.amount) || 0,
+    type: transaction.type || "expense",
+    category: transaction.category || "General",
+    deletedAt: Timestamp.now(),
+    expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+  };
+
+  try {
+    await setDoc(doc(db, "users", userId, "trash", transactionId), trashPayload);
+    await setDoc(doc(db, "trash", `${userId}_${transactionId}`), trashPayload);
+  } catch (_) {}
 
   await deleteDoc(transactionRef);
 };

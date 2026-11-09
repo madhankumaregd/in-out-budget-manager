@@ -756,7 +756,7 @@ const AdminDashboard = () => {
         {/* Average Latency */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
           <div className="flex items-center space-x-2 text-xs text-gray-400 mb-2">
-            <TrendingUp className="w-4 h-4 text-cyan-400" />
+            <TrendingUp className="w-4 h-4 text-violet-400" />
             <span>Average Retrieval Latency</span>
           </div>
           <p className="text-2xl font-bold text-white font-mono">
@@ -770,7 +770,7 @@ const AdminDashboard = () => {
         {/* System Health / Quota Status */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
           <div className="flex items-center space-x-2 text-xs text-gray-400 mb-2">
-            <Server className="w-4 h-4 text-indigo-400" />
+            <Server className="w-4 h-4 text-violet-400" />
             <span>Quota Safety Status</span>
           </div>
           <div className="flex items-center space-x-2">

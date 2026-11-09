@@ -228,7 +228,7 @@ const AdminApiKeys = () => {
                       <div key={i} className="flex items-center space-x-3">
                         <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
                           ep.method === "GET" ? "bg-emerald-500/20 text-emerald-400" :
-                          ep.method === "POST" ? "bg-blue-500/20 text-blue-400" :
+                          ep.method === "POST" ? "bg-violet-500/20 text-violet-400" :
                           "bg-red-500/20 text-red-400"
                         }`}>{ep.method}</span>
                         <code className="text-sm text-gray-300 font-mono">{ep.path}</code>
@@ -437,6 +437,72 @@ const AdminApiKeys = () => {
           </motion.div>
         )}
       </div>
+
+      {/* External Integration Guide & Live API Documentation */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">External Website & API Integration Guide</h3>
+            <p className="text-xs text-gray-400">
+              External apps, websites, and scripts can securely read and write transactions using your active API keys.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Read Example */}
+          <div className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-emerald-400">1. READ TRANSACTIONS (GET)</span>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">read</span>
+            </div>
+            <pre className="text-[11px] font-mono text-gray-300 bg-black/60 p-3 rounded-lg overflow-x-auto">
+{`// Read user transactions from any external site
+fetch("https://your-domain/api/transactions?userId=USER_ID", {
+  headers: {
+    "x-api-key": "iom_YOUR_API_KEY"
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));`}
+            </pre>
+          </div>
+
+          {/* Write Example */}
+          <div className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-purple-400">2. CREATE TRANSACTION (POST)</span>
+              <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded">write</span>
+            </div>
+            <pre className="text-[11px] font-mono text-gray-300 bg-black/60 p-3 rounded-lg overflow-x-auto">
+{`// Create transaction from any external site
+fetch("https://your-domain/api/transactions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-key": "iom_YOUR_API_KEY"
+  },
+  body: JSON.stringify({
+    userId: "USER_ID",
+    type: "expense",
+    amount: 250,
+    category: "Groceries",
+    fromAccountId: "ACCOUNT_ID",
+    description: "External Checkout"
+  })
+})
+.then(res => res.json());`}
+            </pre>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Create Key Modal */}
       <AnimatePresence>

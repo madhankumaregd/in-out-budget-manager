@@ -158,7 +158,7 @@ const AccountDetailModal = ({
         <div className="flex items-start justify-between pb-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center shrink-0">
-              <Icon className="w-6 h-6 text-indigo-600" />
+              <Icon className="w-6 h-6 text-violet-600" />
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
@@ -182,12 +182,12 @@ const AccountDetailModal = ({
         </div>
 
         {/* Account Value & Action Buttons */}
-        <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-gray-50 via-indigo-50/20 to-gray-50 -mx-5 sm:-mx-6 px-5 sm:px-6 border-b border-gray-100">
+        <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-gray-50 via-violet-50/20 to-gray-50 -mx-5 sm:-mx-6 px-5 sm:px-6 border-b border-gray-100">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
               Current Account Balance
             </span>
-            <p className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <p className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               {currencySymbol}
               {account.balance?.toLocaleString("en-IN", {
                 minimumFractionDigits: 2,
@@ -201,7 +201,7 @@ const AccountDetailModal = ({
                 onClose();
                 if (onEdit) onEdit(account.id);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition border border-indigo-200"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-xl transition border border-violet-200"
             >
               <Edit2 className="w-3.5 h-3.5" />
               Edit Account
@@ -283,7 +283,7 @@ const AccountDetailModal = ({
         <div className="pt-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-indigo-600" />
+              <Clock className="w-4 h-4 text-violet-600" />
               Recent Transactions ({accountTransactions.length})
             </h4>
             <span className="text-xs text-gray-400">Latest 10</span>

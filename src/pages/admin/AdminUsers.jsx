@@ -71,6 +71,10 @@ const AdminUsers = () => {
 
   const handleToggleStatus = async (user, e) => {
     e?.stopPropagation();
+    if (user.email?.toLowerCase().trim() === "egdmadhankumar@gmail.com") {
+      toast.error("Primary administrator (egdmadhankumar@gmail.com) is the source root and cannot be disabled.");
+      return;
+    }
     const currentStatus = user.status || "active";
     const nextStatus = currentStatus === "disabled" ? "active" : "disabled";
     setTogglingId(user.id);
@@ -288,6 +292,9 @@ const AdminUsers = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            spellCheck="false"
+            autoCorrect="off"
+            autoComplete="off"
             placeholder="Search by User ID, Name, Email, or Phone..."
             className="w-full pl-11 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 text-sm transition-all"
           />
@@ -429,35 +436,42 @@ const AdminUsers = () => {
 
                       {/* Access Mode Toggle / Control */}
                       <td className="px-4 py-4 text-center whitespace-nowrap">
-                        <div className="inline-flex flex-col items-center gap-1.5">
-                          {isUserDisabled ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1">
-                              <UserX className="w-3 h-3" />
-                              Disabled
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                              <UserCheck className="w-3 h-3" />
-                              Active
-                            </span>
-                          )}
+                        {user.email?.toLowerCase().trim() === "egdmadhankumar@gmail.com" ? (
+                          <span className="px-3 py-1 rounded-xl text-xs font-bold bg-violet-600/20 text-violet-300 border border-violet-500/30 flex items-center justify-center gap-1.5 shadow-xs">
+                            <Shield className="w-3.5 h-3.5 text-violet-400" />
+                            Root Admin (Protected)
+                          </span>
+                        ) : (
+                          <div className="inline-flex flex-col items-center gap-1.5">
+                            {isUserDisabled ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1">
+                                <UserX className="w-3 h-3" />
+                                Disabled
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <UserCheck className="w-3 h-3" />
+                                Active
+                              </span>
+                            )}
 
-                          <button
-                            onClick={(e) => handleToggleStatus(user, e)}
-                            disabled={togglingId === user.id}
-                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition border ${
-                              isUserDisabled
-                                ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
-                                : "bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
-                            } disabled:opacity-50`}
-                          >
-                            {togglingId === user.id
-                              ? "Updating..."
-                              : isUserDisabled
-                              ? "Activate User"
-                              : "Disable User"}
-                          </button>
-                        </div>
+                            <button
+                              onClick={(e) => handleToggleStatus(user, e)}
+                              disabled={togglingId === user.id}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition border ${
+                                isUserDisabled
+                                  ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
+                                  : "bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
+                              } disabled:opacity-50`}
+                            >
+                              {togglingId === user.id
+                                ? "Updating..."
+                                : isUserDisabled
+                                ? "Activate User"
+                                : "Disable User"}
+                            </button>
+                          </div>
+                        )}
                       </td>
 
                       {/* Joined Date */}
@@ -597,23 +611,35 @@ const AdminUsers = () => {
                   </div>
 
                   {/* Access Mode Toggle Bar inside Modal */}
-                  <div className="px-6 py-3 bg-white/[0.02] border-b border-white/5 flex items-center justify-between">
-                    <span className="text-xs text-gray-400 font-medium">
-                      Account Access Control Mode:
-                    </span>
-                    <button
-                      onClick={(e) => handleToggleStatus(selectedUser, e)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
-                        selectedUser.status === "disabled"
-                          ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
-                          : "bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
-                      }`}
-                    >
-                      {selectedUser.status === "disabled"
-                        ? "Switch to Active Mode"
-                        : "Switch to Disabled Mode"}
-                    </button>
-                  </div>
+                  {selectedUser.email?.toLowerCase().trim() === "egdmadhankumar@gmail.com" ? (
+                    <div className="px-6 py-3 bg-violet-500/10 border-b border-violet-500/20 flex items-center justify-between">
+                      <span className="text-xs text-violet-300 font-medium flex items-center gap-1.5">
+                        <Shield className="w-4 h-4 text-violet-400" />
+                        Primary Root Administrator Account
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-violet-600/20 text-violet-300 border border-violet-500/30">
+                        Protected Source Root
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="px-6 py-3 bg-white/[0.02] border-b border-white/5 flex items-center justify-between">
+                      <span className="text-xs text-gray-400 font-medium">
+                        Account Access Control Mode:
+                      </span>
+                      <button
+                        onClick={(e) => handleToggleStatus(selectedUser, e)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                          selectedUser.status === "disabled"
+                            ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
+                            : "bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
+                        }`}
+                      >
+                        {selectedUser.status === "disabled"
+                          ? "Switch to Active Mode"
+                          : "Switch to Disabled Mode"}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="p-6 space-y-6">
                     {/* User Info Grid */}
@@ -707,7 +733,7 @@ const AdminUsers = () => {
                                     ? "bg-emerald-500/20"
                                     : tx.type === "expense"
                                     ? "bg-red-500/20"
-                                    : "bg-blue-500/20"
+                                    : "bg-violet-500/20"
                                 }`}
                               >
                                 <ArrowUpDown
@@ -716,7 +742,7 @@ const AdminUsers = () => {
                                       ? "text-emerald-400"
                                       : tx.type === "expense"
                                       ? "text-red-400"
-                                      : "text-blue-400"
+                                      : "text-violet-400"
                                   }`}
                                 />
                               </div>
@@ -737,7 +763,7 @@ const AdminUsers = () => {
                                   ? "text-emerald-400"
                                   : tx.type === "expense"
                                   ? "text-red-400"
-                                  : "text-blue-400"
+                                  : "text-violet-400"
                               }`}
                             >
                               {tx.type === "income" ? "+" : tx.type === "expense" ? "−" : ""}

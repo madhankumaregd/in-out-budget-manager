@@ -70,10 +70,12 @@ export const validateAmount = (amount) => {
   if (num <= 0) {
     return { valid: false, value: 0, error: "Amount must be greater than zero" };
   }
-  if (num > 999_999_999) {
-    return { valid: false, value: 0, error: "Amount exceeds maximum limit" };
+  if (num > 10_000_000) {
+    return { valid: false, value: 0, error: "Amount exceeds maximum transaction limit of ₹1,00,00,000" };
   }
-  return { valid: true, value: num };
+  // Decimal precision security: round to 2 decimal places
+  const rounded = Math.round(num * 100) / 100;
+  return { valid: true, value: rounded };
 };
 
 /**

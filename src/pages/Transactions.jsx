@@ -6,6 +6,7 @@ import {
   deleteTransaction,
   updateTransaction,
 } from "../firebase/firestoreService";
+import { evaluateAndSyncNotifications } from "../firebase/notificationService";
 import { format, subMonths, addMonths, isSameMonth } from "date-fns";
 import {
   Trash2,
@@ -25,7 +26,6 @@ import {
   Layers,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import ConfirmModal from "../components/ConfirmModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 
 const Transactions = () => {
@@ -44,7 +44,6 @@ const Transactions = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   // Modal states
-  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
 
   // Swipe navigation touch tracking
@@ -61,6 +60,12 @@ const Transactions = () => {
       ]);
       setTransactions(transactionsData);
       setAccounts(accountsData);
+      evaluateAndSyncNotifications(
+        currentUser.uid,
+        accountsData,
+        transactionsData,
+        currencySymbol
+      );
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Failed to load transactions");
@@ -83,6 +88,12 @@ const Transactions = () => {
         if (isMounted) {
           setTransactions(transactionsData);
           setAccounts(accountsData);
+          evaluateAndSyncNotifications(
+            currentUser.uid,
+            accountsData,
+            transactionsData,
+            currencySymbol
+          );
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -102,17 +113,15 @@ const Transactions = () => {
     return account ? account.name : "N/A";
   };
 
-  const handleDelete = async () => {
-    if (!pendingDeleteId) return;
+  const handleDelete = async (idToDelete) => {
+    if (!idToDelete) return;
     try {
-      await deleteTransaction(currentUser.uid, pendingDeleteId);
-      toast.success("Transaction deleted and balance restored.");
-      setPendingDeleteId(null);
+      await deleteTransaction(currentUser.uid, idToDelete);
+      toast.success("Transaction deleted");
       await fetchData();
     } catch (err) {
       console.error("Error deleting transaction:", err);
       toast.error(err.message || "Failed to delete transaction");
-      setPendingDeleteId(null);
     }
   };
 
@@ -320,7 +329,7 @@ const Transactions = () => {
                       ? "bg-green-100 text-green-800"
                       : t.type === "expense"
                       ? "bg-red-100 text-red-800"
-                      : "bg-blue-100 text-blue-800"
+                      : "bg-violet-100 text-violet-800"
                   }`}
                 >
                   {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
@@ -335,7 +344,7 @@ const Transactions = () => {
                     ? "text-green-600"
                     : t.type === "expense"
                     ? "text-red-600"
-                    : "text-blue-600"
+                    : "text-violet-600"
                 }`}
               >
                 {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}
@@ -358,12 +367,12 @@ const Transactions = () => {
                   <button
                     onClick={() => setEditingTransaction(t)}
                     title="Edit transaction"
-                    className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                    className="p-1.5 text-violet-600 hover:text-violet-800 hover:bg-violet-50 rounded-lg transition"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setPendingDeleteId(t.id)}
+                    onClick={() => handleDelete(t.id)}
                     title="Delete transaction"
                     className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                   >
@@ -391,7 +400,7 @@ const Transactions = () => {
                     ? "bg-green-100 text-green-600"
                     : t.type === "expense"
                     ? "bg-red-100 text-red-600"
-                    : "bg-blue-100 text-blue-600"
+                    : "bg-violet-100 text-violet-600"
                 }`}
               >
                 {t.type === "income" ? (
@@ -421,7 +430,7 @@ const Transactions = () => {
                     ? "text-green-600"
                     : t.type === "expense"
                     ? "text-red-600"
-                    : "text-blue-600"
+                    : "text-violet-600"
                 }`}
               >
                 {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}
@@ -460,7 +469,7 @@ const Transactions = () => {
                 <Edit2 className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setPendingDeleteId(t.id)}
+                onClick={() => handleDelete(t.id)}
                 title="Delete transaction"
                 className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
               >
@@ -851,16 +860,6 @@ const Transactions = () => {
         accounts={accounts}
         onClose={() => setEditingTransaction(null)}
         onSave={handleSaveEdit}
-      />
-
-      {/* Custom Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={Boolean(pendingDeleteId)}
-        onCancel={() => setPendingDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Delete Transaction?"
-        message="This will permanently delete the transaction and restore the affected account balance(s). This action cannot be undone."
-        confirmLabel="Yes, Delete"
       />
     </div>
   );

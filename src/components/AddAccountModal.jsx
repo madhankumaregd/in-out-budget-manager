@@ -72,7 +72,7 @@ const AddAccountModal = ({ onClose, onSave }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. HDFC Bank, Wallet, Credit Card"
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
               required
             />
           </div>
@@ -84,7 +84,7 @@ const AddAccountModal = ({ onClose, onSave }) => {
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
             >
               <option value="bank">Bank</option>
               <option value="savings">Savings</option>
@@ -103,7 +103,7 @@ const AddAccountModal = ({ onClose, onSave }) => {
               value={balance}
               onChange={(e) => setBalance(e.target.value)}
               placeholder="0.00"
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
               required
             />
           </div>
@@ -119,7 +119,7 @@ const AddAccountModal = ({ onClose, onSave }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-xs"
+              className="flex-1 px-4 py-2.5 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700 disabled:opacity-50 transition shadow-xs"
             >
               {loading ? "Adding..." : "Add Account"}
             </button>

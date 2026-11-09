@@ -6,6 +6,7 @@ import {
   getUserTransactions,
   createTransaction,
 } from "../firebase/firestoreService";
+import { evaluateAndSyncNotifications } from "../firebase/notificationService";
 import {
   BarChart,
   Bar,
@@ -18,6 +19,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from "recharts";
 import { subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,7 +31,8 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   RefreshCw,
-  Loader
+  Loader,
+  Shield
 } from "lucide-react";
 import AddAccountModal from "../components/AddAccountModal";
 import AddTransactionModal from "../components/AddTransactionModal";
@@ -38,7 +41,7 @@ import DashboardDetailModal from "../components/DashboardDetailModal";
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
-  const { currentUser, userProfile, currencySymbol } = useAuth();
+  const { currentUser, userProfile, currencySymbol, isAdmin } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +69,12 @@ const Dashboard = () => {
         if (isMounted) {
           setAccounts(accountsData || []);
           setTransactions(transactionsData || []);
+          evaluateAndSyncNotifications(
+            currentUser.uid,
+            accountsData || [],
+            transactionsData || [],
+            currencySymbol
+          );
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -95,6 +104,12 @@ const Dashboard = () => {
       ]);
       setAccounts(accountsData || []);
       setTransactions(transactionsData || []);
+      evaluateAndSyncNotifications(
+        currentUser.uid,
+        accountsData || [],
+        transactionsData || [],
+        currencySymbol
+      );
       toast.success("Account created successfully!");
     } catch (error) {
       console.error("Error adding account:", error);
@@ -113,6 +128,12 @@ const Dashboard = () => {
       ]);
       setAccounts(accountsData || []);
       setTransactions(transactionsData || []);
+      evaluateAndSyncNotifications(
+        currentUser.uid,
+        accountsData || [],
+        transactionsData || [],
+        currencySymbol
+      );
       toast.success("Transaction added successfully!");
     } catch (error) {
       console.error("Error adding transaction:", error);
@@ -173,7 +194,18 @@ const Dashboard = () => {
     value,
   }));
   
-  const COLORS = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"];
+  // Major palette: rich Violet, Red, Green, Black, White
+  const COLORS = ["#8B5CF6", "#EF4444", "#7C3AED", "#DC2626", "#A78BFA", "#F87171", "#6D28D9", "#B91C1C"];
+
+  const formatShortValue = (val) => {
+    if (!val || val === 0) return "";
+    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) {
+      const k = val / 1000;
+      return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+    }
+    return `${val}`;
+  };
 
   if (loading) {
     return (
@@ -196,6 +228,12 @@ const Dashboard = () => {
             Welcome back, <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               {userProfile?.displayName || 'User'}!
             </span>
+            {isAdmin && (
+              <span className="inline-flex items-center space-x-1 ml-2.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200 align-middle">
+                <Shield className="w-3.5 h-3.5 text-purple-600 mr-1" />
+                Admin
+              </span>
+            )}
           </h1>
           <p className="text-gray-600 mt-1">Here's your financial overview</p>
         </motion.div>
@@ -209,7 +247,7 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setDetailMode("accounts")}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-5 md:p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
+            className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl shadow-lg p-5 md:p-6 text-white cursor-pointer hover:shadow-xl transition-shadow"
           >
             <div className="flex items-center justify-between mb-3 md:mb-4">
               <Wallet className="w-6 h-6 md:w-8 md:h-8 opacity-80" />
@@ -287,7 +325,7 @@ const Dashboard = () => {
             onClick={() => setShowTransfer(true)}
             className="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col md:flex-row items-center justify-center space-y-1 md:space-y-0 md:space-x-2 hover:shadow-lg transition-all"
           >
-            <RefreshCw className="w-6 h-6 text-blue-600" />
+            <RefreshCw className="w-6 h-6 text-violet-600" />
             <span className="text-xs md:text-base font-semibold text-gray-700">Transfer</span>
           </motion.button>
         </motion.div>
@@ -303,15 +341,19 @@ const Dashboard = () => {
               className="bg-white rounded-2xl shadow-lg p-6"
             >
               <h2 className="text-xl font-bold text-gray-800 mb-4">Monthly Summary</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
+              <ResponsiveContainer width="100%" height={340}>
+                <BarChart data={monthlyData} barGap={8} margin={{ top: 25, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <XAxis dataKey="month" tickLine={false} axisLine={{ stroke: '#E2E8F0' }} />
+                  <YAxis tickLine={false} axisLine={{ stroke: '#E2E8F0' }} tickFormatter={formatShortValue} />
                   <Tooltip formatter={(value) => `${currencySymbol}${value.toLocaleString('en-IN')}`} />
                   <Legend />
-                  <Bar dataKey="income" fill="#10B981" radius={[10, 10, 0, 0]} />
-                  <Bar dataKey="expense" fill="#EF4444" radius={[10, 10, 0, 0]} />
+                  <Bar dataKey="income" name="Income" fill="#10B981" radius={[8, 8, 0, 0]} barSize={36} maxBarSize={48}>
+                    <LabelList dataKey="income" position="top" formatter={formatShortValue} fill="#059669" fontSize={11} fontWeight={700} />
+                  </Bar>
+                  <Bar dataKey="expense" name="Expense" fill="#EF4444" radius={[8, 8, 0, 0]} barSize={36} maxBarSize={48}>
+                    <LabelList dataKey="expense" position="top" formatter={formatShortValue} fill="#DC2626" fontSize={11} fontWeight={700} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </motion.div>

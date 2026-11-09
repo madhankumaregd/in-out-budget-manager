@@ -35,6 +35,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // ─── GLOBAL TRASH MIRROR ───────────────────────────
+    match /trash/{trashId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // ─── USER DOCUMENTS ────────────────────────────────
     match /users/{userId} {
       // Users can read their own data; any authenticated user
@@ -51,9 +56,9 @@ service cloud.firestore {
       // ── Accounts ─────────────────────────────────────
       match /accounts/{accountId} {
         allow read: if isAuthenticated();
-        allow create: if isOwner(userId);
-        allow update: if isAuthenticated();  // Transfers touch other users' accounts
-        allow delete: if isOwner(userId);
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if isAuthenticated();
       }
 
       // ── Transactions (Schema-Validated) ──────────────
@@ -63,21 +68,26 @@ service cloud.firestore {
         // Enforce schema on create:
         // - amount must be positive
         // - type must be income, expense, or transfer
-        allow create: if isOwner(userId)
+        allow create: if isAuthenticated()
           && request.resource.data.amount is number
           && request.resource.data.amount > 0
           && request.resource.data.type in ['income', 'expense', 'transfer'];
 
-        allow update: if isOwner(userId);
-        allow delete: if isOwner(userId);
+        allow update: if isAuthenticated();
+        allow delete: if isAuthenticated();
       }
 
       // ── Trash ────────────────────────────────────────
       match /trash/{trashId} {
         allow read: if isAuthenticated();
-        allow create: if isOwner(userId);
-        allow update: if isOwner(userId);
-        allow delete: if isAuthenticated();  // Admin can empty trash
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if isAuthenticated();
+      }
+
+      // ── Notifications ────────────────────────────────
+      match /notifications/{notificationId} {
+        allow read, write: if isAuthenticated();
       }
     }
   }

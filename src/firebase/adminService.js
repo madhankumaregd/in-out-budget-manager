@@ -95,10 +95,25 @@ export const addAdminUser = async (newEmailOrUid) => {
   }
 
   const updatedList = [...adminEmails, clean];
-  await updateDoc(ref, {
+  await setDoc(ref, {
     adminEmails: updatedList,
     updatedAt: Timestamp.now(),
-  });
+  }, { merge: true });
+
+  // Grant role: "admin" logically to user document in Firestore
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", clean));
+    const snap = await getDocs(q);
+    snap.forEach(async (uDoc) => {
+      await setDoc(uDoc.ref, { role: "admin" }, { merge: true });
+    });
+    const directDoc = await getDoc(doc(db, "users", clean));
+    if (directDoc.exists()) {
+      await setDoc(directDoc.ref, { role: "admin" }, { merge: true });
+    }
+  } catch (_) {}
+
   return updatedList;
 };
 
@@ -111,18 +126,29 @@ export const removeAdminUser = async (emailOrUidToRemove) => {
   const clean = emailOrUidToRemove.toLowerCase().trim();
   const { primaryAdmin, adminEmails } = await getAdminAuthList();
 
-  if (clean === primaryAdmin) {
+  if (clean === primaryAdmin.toLowerCase() || clean === DEFAULT_PRIMARY_ADMIN.toLowerCase()) {
     throw new Error(
-      `Cannot remove primary administrator (${primaryAdmin}). You must switch primary admin ownership first.`
+      `Cannot remove primary administrator (${primaryAdmin}).`
     );
   }
 
   const updatedList = adminEmails.filter((e) => e !== clean);
   const ref = doc(db, ADMIN_COLLECTION, ADMIN_DOC_ID);
-  await updateDoc(ref, {
+  await setDoc(ref, {
     adminEmails: updatedList,
     updatedAt: Timestamp.now(),
-  });
+  }, { merge: true });
+
+  // Revoke role on user document
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", clean));
+    const snap = await getDocs(q);
+    snap.forEach(async (uDoc) => {
+      await setDoc(uDoc.ref, { role: "user" }, { merge: true });
+    });
+  } catch (_) {}
+
   return updatedList;
 };
 
@@ -163,8 +189,16 @@ export const transferAdminOwnership = async (newPrimaryAdmin, currentAdmin) => {
  * Toggles a user's status between "active" and "disabled".
  */
 export const toggleUserStatus = async (userId, currentStatus) => {
-  const newStatus = currentStatus === "disabled" ? "active" : "disabled";
   const userRef = doc(db, "users", userId);
+  const snap = await getDoc(userRef);
+  if (snap.exists()) {
+    const email = (snap.data()?.email || "").toLowerCase().trim();
+    if (email === DEFAULT_PRIMARY_ADMIN.toLowerCase()) {
+      throw new Error(`Primary administrator (${DEFAULT_PRIMARY_ADMIN}) is the source root and cannot be disabled.`);
+    }
+  }
+
+  const newStatus = currentStatus === "disabled" ? "active" : "disabled";
   await updateDoc(userRef, {
     status: newStatus,
     disabled: newStatus === "disabled",
@@ -935,7 +969,7 @@ export const getDatabaseAnalytics = async ({
 // ─── TRASH BIN ─────────────────────────────────────────────────
 export const moveToTrash = async (userId, itemType, itemId, itemData) => {
   const trashRef = collection(db, "users", userId, "trash");
-  await addDoc(trashRef, {
+  const docRef = await addDoc(trashRef, {
     originalId: itemId,
     itemType,
     data: itemData,
@@ -944,6 +978,19 @@ export const moveToTrash = async (userId, itemType, itemId, itemData) => {
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     ),
   });
+  try {
+    const globalTrashRef = doc(db, "trash", `${userId}_${docRef.id}`);
+    await setDoc(globalTrashRef, {
+      originalId: itemId,
+      itemType,
+      data: itemData,
+      userId,
+      deletedAt: Timestamp.now(),
+      expiresAt: Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      ),
+    });
+  } catch (_) {}
 };
 
 export const getTrashItems = async (userId) => {
@@ -1000,22 +1047,90 @@ export const restoreFromTrash = async (userId, trashItemId) => {
 
   if (!trashDoc.exists()) throw new Error("Trash item not found");
 
-  const { itemType, data, originalId } = trashDoc.data();
+  const docData = trashDoc.data();
+  const itemType = docData.itemType || (docData.type === "account" ? "account" : "transaction");
+  const data = { ...(docData.data || docData) };
+  delete data.originalId;
+  delete data.itemType;
+  delete data.deletedAt;
+  delete data.expiresAt;
+  delete data.userName;
+  delete data.userId;
+  const originalId = docData.originalId || trashItemId;
 
   if (itemType === "account") {
     const accountRef = doc(db, "users", userId, "accounts", originalId);
-    await setDoc(accountRef, data);
+    data.name = data.name || docData.title || "Restored Account";
+    data.balance = Number(data.balance) || 0;
+    data.type = data.type || "bank";
+    await setDoc(accountRef, data, { merge: true });
   } else if (itemType === "transaction") {
     const txRef = doc(db, "users", userId, "transactions", originalId);
-    await setDoc(txRef, data);
+
+    // Ensure schema validity for Firestore security rules
+    const rawAmount = Number(data?.amount || docData?.amount) || 1;
+    const amount = rawAmount <= 0 ? 1 : rawAmount;
+
+    let type = data?.type || docData?.type;
+    if (type !== "income" && type !== "expense" && type !== "transfer") {
+      if (data?.toAccountId || (data?.category && data.category.toLowerCase().includes("transfer"))) {
+        type = "transfer";
+      } else {
+        type = "expense";
+      }
+    }
+
+    data.amount = amount;
+    data.type = type;
+    data.category = data.category || "General";
+    data.restoredAt = Timestamp.now();
+
+    await setDoc(txRef, data, { merge: true });
+
+    // Restore balance on account
+    const fromAccountId = data?.fromAccountId;
+    const toAccountId = data?.toAccountId;
+    if (fromAccountId) {
+      try {
+        const fromRef = doc(db, "users", userId, "accounts", fromAccountId);
+        const fromSnap = await getDoc(fromRef);
+        if (fromSnap.exists()) {
+          const curBal = Number(fromSnap.data()?.balance) || 0;
+          const diff = type === "income" ? amount : -amount;
+          await setDoc(fromRef, { balance: curBal + diff }, { merge: true });
+        }
+      } catch (err) {
+        console.warn("Could not update balance on restored account:", err);
+      }
+    }
+    if (type === "transfer" && toAccountId) {
+      try {
+        const toRef = doc(db, "users", userId, "accounts", toAccountId);
+        const toSnap = await getDoc(toRef);
+        if (toSnap.exists()) {
+          const curBal = Number(toSnap.data()?.balance) || 0;
+          await setDoc(toRef, { balance: curBal + amount }, { merge: true });
+        }
+      } catch (err) {
+        console.warn("Could not update destination account on restored transfer:", err);
+      }
+    }
   }
 
   await deleteDoc(trashDocRef);
+  try {
+    const globalRef = doc(db, "trash", `${userId}_${trashItemId}`);
+    await deleteDoc(globalRef);
+  } catch (_) {}
 };
 
 export const permanentDeleteTrashItem = async (userId, trashItemId) => {
   const trashDocRef = doc(db, "users", userId, "trash", trashItemId);
   await deleteDoc(trashDocRef);
+  try {
+    const globalRef = doc(db, "trash", `${userId}_${trashItemId}`);
+    await deleteDoc(globalRef);
+  } catch (_) {}
 };
 
 export const emptyTrash = async (userId) => {

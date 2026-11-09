@@ -143,7 +143,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
             <div className={`p-2 rounded-xl ${
               type === "income" ? "bg-green-100 text-green-700" :
               type === "expense" ? "bg-red-100 text-red-700" :
-              "bg-blue-100 text-blue-700"
+              "bg-violet-100 text-violet-700"
             }`}>
               {type === "income" ? <ArrowUpRight className="w-5 h-5" /> :
                type === "expense" ? <ArrowDownRight className="w-5 h-5" /> :
@@ -218,7 +218,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition ${
                   type === "transfer"
-                    ? "bg-white text-blue-700 shadow-sm"
+                    ? "bg-white text-violet-700 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
@@ -244,7 +244,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-base"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white text-base"
                 required
               />
             </div>
@@ -260,7 +260,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 <select
                   value={fromAccountId}
                   onChange={(e) => setFromAccountId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
                   required
                 >
                   <option value="">Select source</option>
@@ -279,7 +279,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 <select
                   value={toAccountId}
                   onChange={(e) => setToAccountId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
                   required
                 >
                   <option value="">Select destination</option>
@@ -301,7 +301,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
                   required
                 >
                   <option value="">Select Category</option>
@@ -324,7 +324,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
                 <select
                   value={fromAccountId}
                   onChange={(e) => setFromAccountId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
                   required
                 >
                   <option value="">Select Account</option>
@@ -347,7 +347,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
               required
             />
           </div>
@@ -362,7 +362,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Grocery shopping, Salary bonus..."
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white"
             />
           </div>
 
@@ -379,7 +379,7 @@ const EditTransactionModal = ({ transaction, accounts, isOpen, onClose, onSave }
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-md shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition shadow-md shadow-violet-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

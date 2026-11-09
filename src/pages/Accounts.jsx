@@ -9,6 +9,7 @@ import {
   getUserProfile,
   updateUserProfile,
 } from "../firebase/firestoreService";
+import { evaluateAndSyncNotifications } from "../firebase/notificationService";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -26,7 +27,6 @@ import {
   Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import ConfirmModal from "../components/ConfirmModal";
 import AccountDetailModal from "../components/AccountDetailModal";
 
 const Accounts = () => {
@@ -39,7 +39,6 @@ const Accounts = () => {
   const [editingAccount, setEditingAccount] = useState(null);
   const [selectedDetailAccount, setSelectedDetailAccount] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState(null);
   const [profileForm, setProfileForm] = useState({
     displayName: "",
     email: "",
@@ -57,6 +56,12 @@ const Accounts = () => {
       ]);
       setAccounts(accountsData);
       setTransactions(transactionsData);
+      evaluateAndSyncNotifications(
+        currentUser.uid,
+        accountsData || [],
+        transactionsData || [],
+        currencySymbol
+      );
       if (profileData) {
         setProfileForm({
           displayName: profileData.displayName || "",
@@ -89,22 +94,7 @@ const Accounts = () => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const accountId = pendingDeleteAccountId;
-    if (!accountId) return;
-    try {
-      await deleteAccount(currentUser.uid, accountId);
-      await fetchData();
-      toast.success("Account deleted successfully!");
-    } catch (err) {
-      console.error("Error deleting account:", err);
-      toast.error(err.message || "Failed to delete account");
-    } finally {
-      setPendingDeleteAccountId(null);
-    }
-  };
-
-  const requestDeleteAccount = (accountId) => {
+  const requestDeleteAccount = async (accountId) => {
     const account = accounts.find((a) => a.id === accountId);
     if (!account) return;
     if (account.balance !== 0) {
@@ -113,7 +103,17 @@ const Accounts = () => {
       );
       return;
     }
-    setPendingDeleteAccountId(accountId);
+    try {
+      await deleteAccount(currentUser.uid, accountId);
+      await fetchData();
+      toast.success("Account deleted");
+      if (selectedDetailAccount?.id === accountId) {
+        setSelectedDetailAccount(null);
+      }
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      toast.error(err.message || "Failed to delete account");
+    }
   };
 
   const handleUpdateProfile = async () => {
@@ -351,7 +351,7 @@ const Accounts = () => {
                 Click any account to view balance trend graph and recent activity
               </p>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 font-semibold border border-violet-100">
               {accounts.length} Account{accounts.length === 1 ? "" : "s"}
             </span>
           </div>
@@ -367,7 +367,7 @@ const Accounts = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-100 transition-all overflow-hidden"
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-violet-100 transition-all overflow-hidden"
                   >
                     {/* ── MOBILE VIEW: Just Account Value and Name Visible ── */}
                     {/* "in mobile view: just account value only has to visible in the account page
@@ -377,8 +377,8 @@ const Accounts = () => {
                       className="md:hidden p-4 flex items-center justify-between cursor-pointer active:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center space-x-3.5">
-                        <div className="w-11 h-11 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl flex items-center justify-center shrink-0 border border-indigo-100">
-                          <Icon className="w-5 h-5 text-indigo-600" />
+                        <div className="w-11 h-11 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl flex items-center justify-center shrink-0 border border-violet-100">
+                          <Icon className="w-5 h-5 text-violet-600" />
                         </div>
                         <div>
                           <h3 className="font-bold text-gray-800 text-base">
@@ -392,7 +392,7 @@ const Accounts = () => {
 
                       <div className="flex items-center space-x-2">
                         {/* Just Account Value */}
-                        <p className="text-xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        <p className="text-xl font-extrabold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                           {currencySymbol}
                           {account.balance?.toLocaleString("en-IN", {
                             minimumFractionDigits: 2,
@@ -409,8 +409,8 @@ const Accounts = () => {
                       className="hidden md:flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50/50 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0 border border-indigo-100 shadow-xs">
-                          <Icon className="w-6 h-6 text-indigo-600" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0 border border-violet-100 shadow-xs">
+                          <Icon className="w-6 h-6 text-violet-600" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -430,7 +430,7 @@ const Accounts = () => {
                       <div className="flex items-center space-x-6">
                         {/* Account Value */}
                         <div className="text-right">
-                          <p className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                          <p className="text-2xl font-extrabold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                             {currencySymbol}
                             {account.balance?.toLocaleString("en-IN", {
                               minimumFractionDigits: 2,
@@ -448,7 +448,7 @@ const Accounts = () => {
                         >
                           <button
                             onClick={() => setSelectedDetailAccount(account)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition border border-indigo-100 shadow-xs"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-xl transition border border-violet-100 shadow-xs"
                             title="View graph and transactions popup"
                           >
                             <TrendingUp className="w-3.5 h-3.5" />
@@ -456,7 +456,7 @@ const Accounts = () => {
                           </button>
                           <button
                             onClick={() => setEditingAccount(account.id)}
-                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition"
+                            className="p-2 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition"
                             title="Edit Account"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -511,7 +511,7 @@ const Accounts = () => {
             className="flex items-center gap-2.5 bg-white text-red-600 border border-red-200 px-6 py-2.5 rounded-xl font-semibold hover:bg-red-50 transition shadow-xs text-sm"
           >
             <LogOut className="w-4 h-4" />
-            <span>Logout from Session</span>
+            <span>Sign Out</span>
           </motion.button>
         </motion.div>
       </div>
@@ -638,16 +638,6 @@ const Accounts = () => {
           </div>
         </div>
       )}
-
-      {/* Account delete confirmation modal */}
-      <ConfirmModal
-        isOpen={!!pendingDeleteAccountId}
-        onCancel={() => setPendingDeleteAccountId(null)}
-        onConfirm={handleDeleteAccount}
-        title="Delete Account?"
-        message="This will permanently delete the account. Make sure the balance is zero before deleting."
-        confirmLabel="Yes, Delete"
-      />
     </div>
   );
 };

@@ -7,6 +7,7 @@ import {
   deleteAllUsers,
 } from "../../firebase/adminService";
 import { useAdmin } from "../../contexts/AdminContext";
+import { validatePassword } from "../../utils/passwordValidator";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings,
@@ -44,7 +45,6 @@ const AdminSettings = () => {
     isPrimaryAdmin,
     addNewAdmin,
     removeAdmin,
-    transferAdmin,
     refreshAdmins,
   } = useAdmin();
 
@@ -55,9 +55,6 @@ const AdminSettings = () => {
   // Admin access management states
   const [newAdminInput, setNewAdminInput] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
-  const [transferTarget, setTransferTarget] = useState("");
-  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
-  const [transferring, setTransferring] = useState(false);
   const [revokingEmail, setRevokingEmail] = useState(null);
 
   // Version & App settings
@@ -132,28 +129,6 @@ const AdminSettings = () => {
     }
   };
 
-  // ─── Transfer primary admin ownership and lose own power ───
-  const handleTransferOwnership = async () => {
-    if (!transferTarget.trim()) {
-      toast.error("Please specify the recipient administrator email or ID");
-      return;
-    }
-    setTransferring(true);
-    try {
-      await transferAdmin(transferTarget.trim());
-      toast.success(
-        `Admin power successfully transferred to "${transferTarget.trim()}". You have relinquished your admin privileges.`,
-        { duration: 6000 }
-      );
-      setShowTransferConfirm(false);
-      // Navigate out of admin console to user app
-      navigate("/dashboard");
-    } catch (err) {
-      toast.error(err.message || "Failed to transfer admin ownership");
-      setTransferring(false);
-    }
-  };
-
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
@@ -173,19 +148,13 @@ const AdminSettings = () => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPass.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    const pwdErr = validatePassword(newPass);
+    if (pwdErr) {
+      toast.error(pwdErr);
       return;
     }
     if (newPass !== confirmPass) {
       toast.error("Passwords do not match");
-      return;
-    }
-    const hasUpper = /[A-Z]/.test(newPass);
-    const hasLower = /[a-z]/.test(newPass);
-    const hasNumber = /[0-9]/.test(newPass);
-    if (!hasUpper || !hasLower || !hasNumber) {
-      toast.error("Password must include uppercase, lowercase, and numbers");
       return;
     }
 
@@ -403,49 +372,6 @@ const AdminSettings = () => {
           </form>
         </div>
 
-        {/* ── Feature 2: Switch Admin to Other ID & Lose Admin Power (Transfer Ownership) ── */}
-        <div className="p-5 bg-amber-500/[0.04] rounded-2xl border border-amber-500/20">
-          <div className="flex items-start space-x-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
-              <ArrowRightLeft className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-amber-300">
-                Switch Admin to Other ID & Relinquish Power
-              </h3>
-              <p className="text-xs text-amber-400/80 mt-1">
-                Transfer primary admin ownership to another email or user ID.
-                <strong className="text-amber-200"> You will immediately lose your own administrator privileges </strong>
-                and will be signed out of this admin portal.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 mt-4">
-            <input
-              type="text"
-              value={transferTarget}
-              onChange={(e) => setTransferTarget(e.target.value)}
-              placeholder="Enter recipient admin email or User ID..."
-              className="flex-1 px-4 py-2.5 bg-slate-900 border border-amber-500/30 rounded-xl text-white placeholder:text-gray-500 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (!transferTarget.trim()) {
-                  toast.error("Please enter the email/ID of the new admin");
-                  return;
-                }
-                setShowTransferConfirm(true);
-              }}
-              disabled={!transferTarget.trim()}
-              className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-xl text-sm font-semibold transition shadow-md shadow-amber-600/20 disabled:opacity-50 flex items-center justify-center space-x-2 shrink-0"
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              <span>Switch Admin & Relinquish</span>
-            </button>
-          </div>
-        </div>
       </motion.div>
 
       {/* ─── 2. Application Settings ─── */}
@@ -632,7 +558,7 @@ const AdminSettings = () => {
             whileTap={{ scale: 0.99 }}
             type="submit"
             disabled={changingPass || !currentPass || !newPass || newPass !== confirmPass}
-            className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-500 hover:to-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-xl hover:from-violet-500 hover:to-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {changingPass ? (
               <RefreshCw className="w-5 h-5 animate-spin" />
@@ -717,71 +643,6 @@ const AdminSettings = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* ─── Transfer Admin Ownership Confirmation Modal ─── */}
-      <AnimatePresence>
-        {showTransferConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowTransferConfirm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-slate-900 border border-amber-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400">
-                  <ArrowRightLeft className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Transfer Admin Ownership?</h3>
-                  <p className="text-xs text-amber-400 font-semibold">Irreversible Administrative Action</p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4 text-xs text-amber-200 leading-relaxed space-y-2">
-                <p>
-                  You are about to transfer Primary Admin power to:
-                </p>
-                <p className="font-mono text-sm font-bold text-white bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 break-all">
-                  {transferTarget}
-                </p>
-                <p className="text-amber-300 font-semibold">
-                  ⚠️ WARNING: Your current administrator account ({adminEmail}) will lose all admin permissions immediately and you will be signed out.
-                </p>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowTransferConfirm(false)}
-                  disabled={transferring}
-                  className="flex-1 py-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-300 hover:bg-white/10 transition text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleTransferOwnership}
-                  disabled={transferring}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-xl text-sm font-bold transition shadow-lg shadow-rose-600/30 flex items-center justify-center space-x-2"
-                >
-                  {transferring ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <span>Confirm & Relinquish</span>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
