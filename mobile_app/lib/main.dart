@@ -11,6 +11,7 @@ import 'providers/budget_provider.dart';
 import 'providers/admin_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/notification_provider.dart';
+import 'services/notification_service.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
@@ -27,6 +28,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationService.instance.initLocalNotifications();
   runApp(const InOutBudgetApp());
 }
 
@@ -92,8 +94,22 @@ class InOutBudgetApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Prompt for Android 13+ and iOS notification permission on first launch/install
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.requestNotificationPermission();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

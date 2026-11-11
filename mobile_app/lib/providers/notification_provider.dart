@@ -11,6 +11,7 @@ class NotificationProvider extends ChangeNotifier {
   String? _userId;
   StreamSubscription<List<NotificationModel>>? _sub;
   List<NotificationModel> _notifications = [];
+  final Set<String> _shownNotificationIds = {};
   bool _isLoading = false;
   DateTime? _lastEvaluation;
 
@@ -28,6 +29,20 @@ class NotificationProvider extends ChangeNotifier {
       notifyListeners();
 
       _sub = _service.streamNotifications(userId).listen((items) {
+        // Pushes newly arrived unread notifications to Android system status bar
+        final now = DateTime.now();
+        for (final item in items) {
+          if (!item.read &&
+              !_shownNotificationIds.contains(item.id) &&
+              now.difference(item.createdAt).inHours < 24) {
+            _shownNotificationIds.add(item.id);
+            _service.showSystemNotification(
+              title: item.title,
+              body: item.message,
+              id: item.id.hashCode.abs().remainder(100000),
+            );
+          }
+        }
         _notifications = items;
         _isLoading = false;
         notifyListeners();
@@ -40,6 +55,10 @@ class NotificationProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> requestPermission() async {
+    return await _service.requestNotificationPermission();
   }
 
   /// Triggers intelligent notifications check (throttled to once every 30 seconds)

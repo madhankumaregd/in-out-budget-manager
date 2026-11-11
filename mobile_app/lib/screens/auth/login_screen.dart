@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/password_validator.dart';
+import '../../services/notification_service.dart';
 import 'onboarding_screen.dart';
 import '../main_navigation_screen.dart';
 
@@ -27,6 +28,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _localError;
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.requestNotificationPermission();
+    });
+  }
 
   @override
   void dispose() {

@@ -1,14 +1,165 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import '../models/notification_model.dart';
 import '../models/account_model.dart';
 import '../models/transaction_model.dart';
 
 class NotificationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final NotificationService instance = NotificationService._internal();
+  factory NotificationService() => instance;
+  NotificationService._internal();
 
-  CollectionReference<Map<String, dynamic>> _userNotificationsRef(String userId) {
-    return _firestore.collection('users').doc(userId).collection('notifications');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+  bool _isLocalInitialized = false;
+  bool _hasShownWelcomeNotif = false;
+
+  /// Initialize local notification channels and platform settings
+  Future<void> initLocalNotifications() async {
+    if (_isLocalInitialized) return;
+
+    try {
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _localNotifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (response) {
+          // Can navigate to notification sheet or specific transaction if tapped
+        },
+      );
+
+      // Create Android Notification Channel for Financial Alerts
+      final androidImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImplementation != null) {
+        const channel = AndroidNotificationChannel(
+          'in_out_alerts',
+          'Financial Alerts & Security',
+          description:
+              'Low balance alerts, daily transaction summaries, and security notifications',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        );
+        await androidImplementation.createNotificationChannel(channel);
+      }
+
+      _isLocalInitialized = true;
+    } catch (_) {
+      // Safe fallback
+    }
+  }
+
+  /// Explicitly prompt user for Android 13+ and iOS Notification Permissions
+  Future<bool> requestNotificationPermission() async {
+    try {
+      if (!_isLocalInitialized) {
+        await initLocalNotifications();
+      }
+
+      // Android 13+ (API 33+) native runtime permission prompt
+      final androidImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImplementation != null) {
+        final granted =
+            await androidImplementation.requestNotificationsPermission();
+        if (granted == true && !_hasShownWelcomeNotif) {
+          _hasShownWelcomeNotif = true;
+          await showSystemNotification(
+            title: 'IN & OUT Notifications Enabled',
+            body: 'You will receive daily financial summaries and security alerts for low balances.',
+            id: 1001,
+          );
+        }
+        return granted ?? false;
+      }
+
+      // iOS permission prompt
+      final iosImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      if (iosImplementation != null) {
+        final granted = await iosImplementation.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        return granted ?? false;
+      }
+
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fire a heads-up system notification into the phone's notification shade
+  Future<void> showSystemNotification({
+    required String title,
+    required String body,
+    int? id,
+    String? payload,
+  }) async {
+    try {
+      if (!_isLocalInitialized) {
+        await initLocalNotifications();
+      }
+
+      const androidDetails = AndroidNotificationDetails(
+        'in_out_alerts',
+        'Financial Alerts & Security',
+        channelDescription:
+            'Low balance alerts, daily transaction summaries, and security notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
+        showWhen: true,
+        icon: '@mipmap/ic_launcher',
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      final notifId =
+          id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      await _localNotifications.show(notifId, title, body, details,
+          payload: payload);
+    } catch (_) {
+      // Safe fallback
+    }
+  }
+
+  CollectionReference<Map<String, dynamic>> _userNotificationsRef(
+      String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications');
   }
 
   /// Stream notifications for a user, newest first
@@ -17,14 +168,17 @@ class NotificationService {
         .orderBy('createdAt', descending: true)
         .limit(50)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromFirestore(doc))
+            .toList());
   }
 
   /// Mark single notification as read
   Future<void> markAsRead(String userId, String notificationId) async {
     try {
-      await _userNotificationsRef(userId).doc(notificationId).update({'read': true});
+      await _userNotificationsRef(userId)
+          .doc(notificationId)
+          .update({'read': true});
     } catch (e) {
       // If doc doesn't exist or error, ignore
     }
@@ -98,10 +252,13 @@ class NotificationService {
         // Check if doc exists
         final snap = await docRef.get();
         if (!snap.exists) {
+          final title = 'Security Alert: Low Bank Balance';
+          final message =
+              'Account "${acc.name}" balance has dropped to $currencySymbol${acc.balance.toStringAsFixed(2)}, which is below the safe threshold of $currencySymbol 1,000.';
+
           batch.set(docRef, {
-            'title': 'Security Alert: Low Bank Balance',
-            'message':
-                'Account "${acc.name}" balance has dropped to $currencySymbol${acc.balance.toStringAsFixed(2)}, which is below the safe threshold of $currencySymbol 1,000.',
+            'title': title,
+            'message': message,
             'type': 'security_low_balance',
             'severity': 'warning',
             'read': false,
@@ -114,6 +271,13 @@ class NotificationService {
             },
           });
           hasWrites = true;
+
+          // Fire native Android system notification
+          await showSystemNotification(
+            title: title,
+            body: message,
+            id: acc.id.hashCode.abs().remainder(100000),
+          );
         }
       } else if (acc.balance < 0) {
         // Critical: Overdrawn account
@@ -121,10 +285,13 @@ class NotificationService {
         final docRef = _userNotificationsRef(userId).doc(docId);
         final snap = await docRef.get();
         if (!snap.exists) {
+          final title = 'Critical: Overdrawn Account';
+          final message =
+              'Account "${acc.name}" has an overdraft balance of -$currencySymbol${acc.balance.abs().toStringAsFixed(2)}. Immediate action required.';
+
           batch.set(docRef, {
-            'title': 'Critical: Overdrawn Account',
-            'message':
-                'Account "${acc.name}" has an overdraft balance of -$currencySymbol${acc.balance.abs().toStringAsFixed(2)}. Immediate action required.',
+            'title': title,
+            'message': message,
             'type': 'overdraft',
             'severity': 'danger',
             'read': false,
@@ -136,6 +303,13 @@ class NotificationService {
             },
           });
           hasWrites = true;
+
+          // Fire native Android system notification
+          await showSystemNotification(
+            title: title,
+            body: message,
+            id: acc.id.hashCode.abs().remainder(100000),
+          );
         }
       }
     }
@@ -163,18 +337,23 @@ class NotificationService {
       final summaryMsg = StringBuffer();
       summaryMsg.write('Today: $txCount transaction${txCount > 1 ? 's' : ''}. ');
       if (todayExpense > 0) {
-        summaryMsg.write('Spent $currencySymbol${todayExpense.toStringAsFixed(2)}');
+        summaryMsg
+            .write('Spent $currencySymbol${todayExpense.toStringAsFixed(2)}');
       } else {
         summaryMsg.write('No expenses yet');
       }
       if (todayIncome > 0) {
-        summaryMsg.write(' · Earned +$currencySymbol${todayIncome.toStringAsFixed(2)}');
+        summaryMsg.write(
+            ' · Earned +$currencySymbol${todayIncome.toStringAsFixed(2)}');
       }
+
+      final title = 'Daily Financial Summary';
+      final message = summaryMsg.toString();
 
       if (!snap.exists) {
         batch.set(summaryDocRef, {
-          'title': 'Daily Financial Summary',
-          'message': summaryMsg.toString(),
+          'title': title,
+          'message': message,
           'type': 'daily_summary',
           'severity': 'info',
           'read': false,
@@ -187,13 +366,20 @@ class NotificationService {
           },
         });
         hasWrites = true;
+
+        // Fire native Android system notification
+        await showSystemNotification(
+          title: title,
+          body: message,
+          id: 99999,
+        );
       } else {
         // If summary exists, update the text and amounts without unmarking read if user already opened it
         final existingData = snap.data();
         final prevCount = existingData?['metadata']?['txCount'] ?? 0;
         if (prevCount != txCount) {
           batch.update(summaryDocRef, {
-            'message': summaryMsg.toString(),
+            'message': message,
             'metadata.txCount': txCount,
             'metadata.expense': todayExpense,
             'metadata.income': todayIncome,
@@ -216,11 +402,15 @@ class NotificationService {
       final docRef = _userNotificationsRef(userId).doc(docId);
       final snap = await docRef.get();
       if (!snap.exists) {
-        final categoryOrDesc = tx.description.isNotEmpty ? tx.description : tx.category;
+        final categoryOrDesc =
+            tx.description.isNotEmpty ? tx.description : tx.category;
+        final title = 'High Expense Recorded';
+        final message =
+            'A high expense of $currencySymbol${tx.amount.toStringAsFixed(2)} was recorded for "$categoryOrDesc".';
+
         batch.set(docRef, {
-          'title': 'High Expense Recorded',
-          'message':
-              'A high expense of $currencySymbol${tx.amount.toStringAsFixed(2)} was recorded for "$categoryOrDesc".',
+          'title': title,
+          'message': message,
           'type': 'high_expense',
           'severity': 'warning',
           'read': false,
@@ -232,6 +422,13 @@ class NotificationService {
           },
         });
         hasWrites = true;
+
+        // Fire native Android system notification
+        await showSystemNotification(
+          title: title,
+          body: message,
+          id: tx.id.hashCode.abs().remainder(100000),
+        );
       }
     }
 

@@ -36,6 +36,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<NotificationProvider>().requestPermission();
+      }
+    });
   }
 
   void _onTabTapped(int index) {
@@ -62,6 +67,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final auth = context.watch<AuthProvider>();
     final themeProv = context.watch<ThemeProvider>();
     final notifProv = context.watch<NotificationProvider>();
+    final budget = context.watch<BudgetProvider>();
     final unreadNotifs = notifProv.unreadCount;
     final isDark = themeProv.isDark(context);
     final isAdmin = auth.isUserAdmin;
@@ -72,7 +78,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     // Trigger intelligent notifications evaluation once data is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final budget = context.read<BudgetProvider>();
         if (!budget.isLoading &&
             (budget.accounts.isNotEmpty || budget.transactions.isNotEmpty)) {
           context.read<NotificationProvider>().evaluate(

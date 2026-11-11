@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import '../models/account_model.dart';
 import '../models/transaction_model.dart';
 
@@ -73,6 +74,7 @@ class BudgetProvider extends ChangeNotifier {
         _accounts = accs;
         _isLoading = false;
         notifyListeners();
+        _syncNotificationCheck();
       });
 
       _transactionsSub =
@@ -80,6 +82,7 @@ class BudgetProvider extends ChangeNotifier {
         _transactions = txs;
         _isLoading = false;
         notifyListeners();
+        _syncNotificationCheck();
       });
     } else {
       _accounts = [];
@@ -90,6 +93,17 @@ class BudgetProvider extends ChangeNotifier {
   }
 
   void setUser(String? userId) => updateUser(userId);
+
+  void _syncNotificationCheck() {
+    if (_currentUserId == null || _currentUserId!.isEmpty) return;
+    if (_accounts.isEmpty && _transactions.isEmpty) return;
+    NotificationService.instance.evaluateAndSyncNotifications(
+      userId: _currentUserId!,
+      accounts: _accounts,
+      transactions: _transactions,
+      currencySymbol: '₹',
+    );
+  }
 
   // ─── Total Financial Aggregations ───
   double get totalBalance {
@@ -429,6 +443,16 @@ class BudgetProvider extends ChangeNotifier {
       toAccountId: toAccountId,
       date: date,
       description: description,
+    );
+
+    // Instant system notification for newly added transaction
+    final typeLabel = type == 'income'
+        ? 'Income Added'
+        : (type == 'transfer' ? 'Transfer Completed' : 'Expense Recorded');
+    final formattedAmount = '₹${amount.toStringAsFixed(2)}';
+    NotificationService.instance.showSystemNotification(
+      title: typeLabel,
+      body: '$formattedAmount · $category${description.isNotEmpty ? ' ($description)' : ''}',
     );
   }
 
