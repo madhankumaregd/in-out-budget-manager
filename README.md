@@ -4,6 +4,18 @@ A cross-platform financial management and infrastructure observability ecosystem
 
 ---
 
+## 📱 Mobile Application Gallery
+
+<p align="center">
+  <img src="output/screenshots/01_dashboard.png" width="19%" alt="Live Mobile Dashboard" />
+  <img src="output/screenshots/02_accounts.png" width="19%" alt="Accounts & Balances" />
+  <img src="output/screenshots/03_monthly_analysis.png" width="19%" alt="Monthly Analysis & Graph" />
+  <img src="output/screenshots/04_transaction_details.png" width="19%" alt="Transaction Details Sheet" />
+  <img src="output/screenshots/05_release_installed.png" width="19%" alt="Production Release App" />
+</p>
+
+---
+
 ## 🎨 Unified Color System & Visual Design
 
 Designed around a curated 3-color primary hierarchy with deep dark mode aesthetics and high contrast:
@@ -32,7 +44,7 @@ Designed around a curated 3-color primary hierarchy with deep dark mode aestheti
   * **Overdraft Protection:** Prevents transactions from driving account balances below zero.
   * **Multi-Account Split Transfers:** Transfer funds to or from multiple accounts in a single atomic batch operation.
 * **Intelligent Notifications Engine:**
-  * **Low Balance Security Alerts:** Automatic notification when any bank account drops below ₹1,000.
+  * **Low Balance Security Alerts:** Automatic notification when any bank account drops below ₹1,00,00.
   * **Daily Financial Summary:** Aggregated daily breakdown of expenses, income, and total activity.
   * Real-time in-app notification sheet and badge counters.
 * **Seamless Transactions Management:**
