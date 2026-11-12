@@ -282,7 +282,7 @@ const Transactions = () => {
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Date & Time
+              Time & Date
             </th>
             <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Type
@@ -312,14 +312,14 @@ const Transactions = () => {
             <tr key={t.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-5 py-4 whitespace-nowrap">
                 <p className="text-sm font-medium text-gray-900">
-                  {format(new Date(t.date), "MMM dd, yyyy")}
-                </p>
-                <p className="text-xs text-gray-400">
                   {t.createdAt?.toDate
                     ? format(t.createdAt.toDate(), "hh:mm a")
                     : t.date
                     ? format(new Date(t.date), "hh:mm a")
                     : "—"}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {format(new Date(t.date), "MMM dd, yyyy")}
                 </p>
               </td>
               <td className="px-5 py-4 whitespace-nowrap">
@@ -387,95 +387,116 @@ const Transactions = () => {
     </div>
   );
 
+  // Group transactions by calendar date (preserving sorted order)
+  const groupTransactionsByDate = (txList) => {
+    const groups = [];
+    const indexByDate = {};
+    txList.forEach((t) => {
+      const dateLabel = format(new Date(t.date), "MMM dd, yyyy");
+      if (indexByDate[dateLabel] === undefined) {
+        indexByDate[dateLabel] = groups.length;
+        groups.push({ dateLabel, items: [t] });
+      } else {
+        groups[indexByDate[dateLabel]].items.push(t);
+      }
+    });
+    return groups;
+  };
+
   // Render Mobile Cards for a list of transactions
   const renderTransactionsMobile = (txList) => (
-    <div className="md:hidden divide-y divide-gray-100">
-      {txList.map((t) => (
-        <div key={t.id} className="p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-xl ${
-                  t.type === "income"
-                    ? "bg-green-100 text-green-600"
-                    : t.type === "expense"
-                    ? "bg-red-100 text-red-600"
-                    : "bg-violet-100 text-violet-600"
-                }`}
-              >
-                {t.type === "income" ? (
-                  <ArrowUpRight className="w-5 h-5" />
-                ) : t.type === "expense" ? (
-                  <ArrowDownRight className="w-5 h-5" />
-                ) : (
-                  <RefreshCw className="w-5 h-5" />
-                )}
-              </div>
-              <div>
-                <p className="font-semibold text-gray-800">
-                  {t.category || "Transfer"}
-                </p>
-                <p className="text-xs text-gray-500 line-clamp-1">
-                  {t.description ||
-                    (t.type === "transfer"
-                      ? `To ${getAccountName(t.toAccountId)}`
-                      : "No description")}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p
-                className={`font-bold ${
-                  t.type === "income"
-                    ? "text-green-600"
-                    : t.type === "expense"
-                    ? "text-red-600"
-                    : "text-violet-600"
-                }`}
-              >
-                {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}
-                {currencySymbol}
-                {t.amount.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}
-              </p>
-              <p className="text-xs text-gray-400 font-medium">
-                {getAccountName(t.fromAccountId)}
-              </p>
-            </div>
-          </div>
+    <div className="md:hidden space-y-4 p-3 bg-gray-50/40">
+      {groupTransactionsByDate(txList).map(({ dateLabel, items }) => (
+        <div key={dateLabel}>
+          <p className="text-xs font-semibold text-gray-500 text-left px-1 mb-1.5">
+            {dateLabel}
+          </p>
+          <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+            {items.map((t) => (
+              <div key={t.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-2 rounded-xl ${
+                        t.type === "income"
+                          ? "bg-green-100 text-green-600"
+                          : t.type === "expense"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-violet-100 text-violet-600"
+                      }`}
+                    >
+                      {t.type === "income" ? (
+                        <ArrowUpRight className="w-5 h-5" />
+                      ) : t.type === "expense" ? (
+                        <ArrowDownRight className="w-5 h-5" />
+                      ) : (
+                        <RefreshCw className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {t.category || "Transfer"}
+                      </p>
+                      <p className="text-xs text-gray-500 line-clamp-1">
+                        {t.description ||
+                          (t.type === "transfer"
+                            ? `${getAccountName(t.fromAccountId)} -> ${getAccountName(t.toAccountId)}`
+                            : "No description")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`font-bold ${
+                        t.type === "income"
+                          ? "text-green-600"
+                          : t.type === "expense"
+                          ? "text-red-600"
+                          : "text-violet-600"
+                      }`}
+                    >
+                      {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}
+                      {currencySymbol}
+                      {t.amount.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-400 font-medium">
+                      {t.type === "transfer" && t.toAccountId
+                        ? `${getAccountName(t.fromAccountId)} -> ${getAccountName(t.toAccountId)}`
+                        : getAccountName(t.fromAccountId)}
+                    </p>
+                  </div>
+                </div>
 
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50">
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                {format(new Date(t.date), "MMM dd, yyyy")}
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    {t.createdAt?.toDate
+                      ? format(t.createdAt.toDate(), "hh:mm a")
+                      : t.date
+                      ? format(new Date(t.date), "hh:mm a")
+                      : "—"}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditingTransaction(t)}
+                      title="Edit transaction"
+                      className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      title="Delete transaction"
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                {t.createdAt?.toDate
-                  ? format(t.createdAt.toDate(), "hh:mm a")
-                  : t.date
-                  ? format(new Date(t.date), "hh:mm a")
-                  : "—"}
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setEditingTransaction(t)}
-                title="Edit transaction"
-                className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(t.id)}
-                title="Delete transaction"
-                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       ))}

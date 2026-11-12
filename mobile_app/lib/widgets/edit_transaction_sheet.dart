@@ -145,6 +145,34 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         ? AppConstants.incomeCategories
         : AppConstants.expenseCategories;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final toggleBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final activeTabBg = isDark ? const Color(0xFF334155) : Colors.white;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final inputBorder = isDark ? const Color(0xFF334155) : AppColors.dividerColor;
+    final dropdownBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final errorBg = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.14)
+        : const Color(0xFFFEF2F2);
+    final errorBorder = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.38)
+        : const Color(0xFFFECACA);
+    final deleteBg = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.14)
+        : const Color(0xFFFEF2F2);
+    final deleteBorder = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.4)
+        : const Color(0xFFFECACA);
+
+    final validFromAccountId =
+        widget.accounts.any((a) => a.id == _fromAccountId) ? _fromAccountId : null;
+    final validToAccountId = _toAccountId != null &&
+            widget.accounts.any((a) => a.id == _toAccountId)
+        ? _toAccountId
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -153,9 +181,9 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: errorBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECACA)),
+              border: Border.all(color: errorBorder),
             ),
             child: Row(
               children: [
@@ -174,15 +202,16 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         // ── 3-Way Segmented Control: Income, Expense, Transfer ──
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: toggleBg,
             borderRadius: BorderRadius.circular(12),
+            border: isDark ? Border.all(color: inputBorder) : null,
           ),
           padding: const EdgeInsets.all(4),
           child: Row(
             children: [
-              _buildTypeTab('income', 'Income', AppColors.incomeGreen),
-              _buildTypeTab('expense', 'Expense', AppColors.expenseRed),
-              _buildTypeTab('transfer', 'Transfer', AppColors.transferBlue),
+              _buildTypeTab('income', 'Income', AppColors.incomeGreen, activeTabBg, textMuted, isDark),
+              _buildTypeTab('expense', 'Expense', AppColors.expenseRed, activeTabBg, textMuted, isDark),
+              _buildTypeTab('transfer', 'Transfer', AppColors.transferBlue, activeTabBg, textMuted, isDark),
             ],
           ),
         ),
@@ -193,14 +222,16 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         TextField(
           controller: _amountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
           decoration: InputDecoration(
             labelText: 'Amount (${widget.currencySymbol})',
             prefixText: '${widget.currencySymbol} ',
-            prefixStyle: const TextStyle(
+            filled: true,
+            fillColor: inputBg,
+            prefixStyle: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: textPrimary,
             ),
           ),
         ),
@@ -210,12 +241,21 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         if (_type == 'transfer') ...[
           // From Account
           DropdownButtonFormField<String>(
-            value: _fromAccountId,
-            decoration: const InputDecoration(labelText: 'Transfer From'),
+            value: validFromAccountId,
+            dropdownColor: dropdownBg,
+            style: TextStyle(color: textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              labelText: 'Transfer From',
+              filled: true,
+              fillColor: inputBg,
+            ),
             items: widget.accounts.map((acc) {
               return DropdownMenuItem(
                 value: acc.id,
-                child: Text('${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})'),
+                child: Text(
+                  '${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})',
+                  style: TextStyle(color: textPrimary),
+                ),
               );
             }).toList(),
             onChanged: (val) {
@@ -226,12 +266,21 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
 
           // To Account
           DropdownButtonFormField<String>(
-            value: _toAccountId,
-            decoration: const InputDecoration(labelText: 'Transfer To'),
+            value: validToAccountId,
+            dropdownColor: dropdownBg,
+            style: TextStyle(color: textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              labelText: 'Transfer To',
+              filled: true,
+              fillColor: inputBg,
+            ),
             items: widget.accounts.map((acc) {
               return DropdownMenuItem(
                 value: acc.id,
-                child: Text('${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})'),
+                child: Text(
+                  '${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})',
+                  style: TextStyle(color: textPrimary),
+                ),
               );
             }).toList(),
             onChanged: (val) => setState(() => _toAccountId = val),
@@ -240,9 +289,18 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
           // Category
           DropdownButtonFormField<String>(
             value: categories.contains(_category) ? _category : categories.first,
-            decoration: const InputDecoration(labelText: 'Category'),
+            dropdownColor: dropdownBg,
+            style: TextStyle(color: textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              labelText: 'Category',
+              filled: true,
+              fillColor: inputBg,
+            ),
             items: categories.map((cat) {
-              return DropdownMenuItem(value: cat, child: Text(cat));
+              return DropdownMenuItem(
+                value: cat,
+                child: Text(cat, style: TextStyle(color: textPrimary)),
+              );
             }).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _category = val);
@@ -252,12 +310,21 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
 
           // Account
           DropdownButtonFormField<String>(
-            value: _fromAccountId,
-            decoration: const InputDecoration(labelText: 'Account'),
+            value: validFromAccountId,
+            dropdownColor: dropdownBg,
+            style: TextStyle(color: textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              labelText: 'Account',
+              filled: true,
+              fillColor: inputBg,
+            ),
             items: widget.accounts.map((acc) {
               return DropdownMenuItem(
                 value: acc.id,
-                child: Text('${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})'),
+                child: Text(
+                  '${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})',
+                  style: TextStyle(color: textPrimary),
+                ),
               );
             }).toList(),
             onChanged: (val) {
@@ -276,22 +343,53 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
               initialDate: _date,
               firstDate: DateTime(2020),
               lastDate: DateTime(2030),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: isDark
+                        ? const ColorScheme.dark(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Color(0xFF0F172A),
+                            onSurface: Colors.white,
+                          )
+                        : const ColorScheme.light(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Colors.white,
+                            onSurface: AppColors.textPrimary,
+                          ),
+                  ),
+                  child: child!,
+                );
+              },
             );
-            if (picked != null) setState(() => _date = picked);
+            if (picked != null) {
+              setState(() {
+                _date = DateTime(
+                  picked.year,
+                  picked.month,
+                  picked.day,
+                  _date.hour,
+                  _date.minute,
+                  _date.second,
+                );
+              });
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: inputBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.dividerColor),
+              border: Border.all(color: inputBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   DateFormatter.formatDate(_date),
-                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: 14, color: textPrimary),
                 ),
                 const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primaryIndigo),
               ],
@@ -304,8 +402,11 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         // ── Description ──
         TextField(
           controller: _descriptionController,
-          decoration: const InputDecoration(
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
             labelText: 'Description (Optional)',
+            filled: true,
+            fillColor: inputBg,
           ),
         ),
 
@@ -316,6 +417,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
           onPressed: _isLoading ? null : _handleSubmit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primaryIndigo,
+            foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
@@ -327,7 +429,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                 )
               : const Text(
                   'Save Changes',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
         ),
 
@@ -356,8 +458,8 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.expenseRed),
             ),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFFFECACA)),
-              backgroundColor: const Color(0xFFFEF2F2),
+              side: BorderSide(color: deleteBorder),
+              backgroundColor: deleteBg,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
@@ -367,7 +469,14 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
     );
   }
 
-  Widget _buildTypeTab(String type, String label, Color activeColor) {
+  Widget _buildTypeTab(
+    String type,
+    String label,
+    Color activeColor,
+    Color activeTabBg,
+    Color textMuted,
+    bool isDark,
+  ) {
     final isSelected = _type == type;
     return Expanded(
       child: GestureDetector(
@@ -386,12 +495,12 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? activeTabBg : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     )
@@ -404,7 +513,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: isSelected ? activeColor : AppColors.textMuted,
+              color: isSelected ? activeColor : textMuted,
             ),
           ),
         ),

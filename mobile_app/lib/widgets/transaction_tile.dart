@@ -149,7 +149,7 @@ class TransactionTile extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            DateFormatter.formatDate(transaction.date),
+                            DateFormatter.formatTime(transaction.effectiveTime),
                             style: TextStyle(
                               fontSize: 11,
                               color: subtitleColor,
@@ -162,7 +162,7 @@ class TransactionTile extends StatelessWidget {
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              isTransfer && toAccountName != null
+                              isTransfer && toAccountName != null && toAccountName!.isNotEmpty
                                     ? '$effectiveFrom → $toAccountName'
                                     : effectiveFrom,
                               style: TextStyle(

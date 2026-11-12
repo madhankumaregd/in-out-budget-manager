@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
+import '../providers/budget_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/utils/currency_formatter.dart';
 import 'swipe_dismiss_bottom_sheet.dart';
@@ -8,6 +10,8 @@ import 'swipe_dismiss_bottom_sheet.dart';
 class TransactionDetailSheet extends StatelessWidget {
   final TransactionModel transaction;
   final String currencySymbol;
+  final String? fromAccountName;
+  final String? toAccountName;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -15,6 +19,8 @@ class TransactionDetailSheet extends StatelessWidget {
     super.key,
     required this.transaction,
     this.currencySymbol = '₹',
+    this.fromAccountName,
+    this.toAccountName,
     required this.onEdit,
     required this.onDelete,
   });
@@ -23,13 +29,18 @@ class TransactionDetailSheet extends StatelessWidget {
     required BuildContext context,
     required TransactionModel transaction,
     String currencySymbol = '₹',
+    String? fromAccountName,
+    String? toAccountName,
     required VoidCallback onEdit,
     required VoidCallback onDelete,
   }) {
+    final timeStr = DateFormat('hh:mm a').format(transaction.effectiveTime);
+    final dateStr = DateFormat('MMM dd, yyyy').format(transaction.date);
+
     SwipeDismissBottomSheet.show(
       context: context,
       title: transaction.category.isNotEmpty ? transaction.category : 'Transaction Details',
-      subtitle: '${transaction.type.toUpperCase()} • ${DateFormat('MMM dd, yyyy').format(transaction.date)}',
+      subtitle: '${transaction.type.toUpperCase()} • $timeStr · $dateStr',
       leading: Container(
         width: 44,
         height: 44,
@@ -58,6 +69,8 @@ class TransactionDetailSheet extends StatelessWidget {
       child: TransactionDetailSheet(
         transaction: transaction,
         currencySymbol: currencySymbol,
+        fromAccountName: fromAccountName,
+        toAccountName: toAccountName,
         onEdit: onEdit,
         onDelete: onDelete,
       ),
@@ -143,60 +156,80 @@ class TransactionDetailSheet extends StatelessWidget {
         const SizedBox(height: 16),
 
         // ── Transaction Information Details ──
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: cardBorder),
-          ),
-          child: Column(
-            children: [
-              _buildDetailRow(
-                icon: Icons.category_rounded,
-                label: 'Category',
-                value: transaction.category.isNotEmpty ? transaction.category : 'General',
-                textColor: textColor,
-                textSecondary: textSecondary,
+        Builder(
+          builder: (ctx) {
+            final budget = Provider.of<BudgetProvider>(ctx, listen: false);
+            final resolvedFrom = (fromAccountName != null && fromAccountName!.isNotEmpty)
+                ? fromAccountName!
+                : (transaction.fromAccountName.isNotEmpty
+                    ? transaction.fromAccountName
+                    : budget.getAccountName(transaction.fromAccountId));
+            final resolvedTo = (toAccountName != null && toAccountName!.isNotEmpty)
+                ? toAccountName!
+                : (transaction.toAccountName != null && transaction.toAccountName!.isNotEmpty
+                    ? transaction.toAccountName!
+                    : (transaction.toAccountId != null && transaction.toAccountId!.isNotEmpty
+                        ? budget.getAccountName(transaction.toAccountId)
+                        : null));
+            final timeStr = DateFormat('hh:mm a').format(transaction.effectiveTime);
+            final dateStr = DateFormat('MMM dd, yyyy').format(transaction.date);
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: cardBorder),
               ),
-              Divider(height: 20, color: cardBorder),
-              _buildDetailRow(
-                icon: Icons.account_balance_wallet_rounded,
-                label: isTransfer ? 'From Account' : 'Account',
-                value: transaction.fromAccountName.isNotEmpty ? transaction.fromAccountName : 'Account',
-                textColor: textColor,
-                textSecondary: textSecondary,
+              child: Column(
+                children: [
+                  _buildDetailRow(
+                    icon: Icons.category_rounded,
+                    label: 'Category',
+                    value: transaction.category.isNotEmpty ? transaction.category : 'General',
+                    textColor: textColor,
+                    textSecondary: textSecondary,
+                  ),
+                  Divider(height: 20, color: cardBorder),
+                  _buildDetailRow(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: isTransfer ? 'From Account' : 'Account',
+                    value: resolvedFrom,
+                    textColor: textColor,
+                    textSecondary: textSecondary,
+                  ),
+                  if (isTransfer && resolvedTo != null && resolvedTo.isNotEmpty) ...[
+                    Divider(height: 20, color: cardBorder),
+                    _buildDetailRow(
+                      icon: Icons.arrow_forward_rounded,
+                      label: 'To Account',
+                      value: resolvedTo,
+                      textColor: textColor,
+                      textSecondary: textSecondary,
+                    ),
+                  ],
+                  Divider(height: 20, color: cardBorder),
+                  _buildDetailRow(
+                    icon: Icons.schedule_rounded,
+                    label: 'Time & Date',
+                    value: '$timeStr · $dateStr',
+                    textColor: textColor,
+                    textSecondary: textSecondary,
+                  ),
+                  if (transaction.description.isNotEmpty) ...[
+                    Divider(height: 20, color: cardBorder),
+                    _buildDetailRow(
+                      icon: Icons.notes_rounded,
+                      label: 'Description',
+                      value: transaction.description,
+                      textColor: textColor,
+                      textSecondary: textSecondary,
+                    ),
+                  ],
+                ],
               ),
-              if (isTransfer && transaction.toAccountName != null) ...[
-                Divider(height: 20, color: cardBorder),
-                _buildDetailRow(
-                  icon: Icons.arrow_forward_rounded,
-                  label: 'To Account',
-                  value: transaction.toAccountName!,
-                  textColor: textColor,
-                  textSecondary: textSecondary,
-                ),
-              ],
-              Divider(height: 20, color: cardBorder),
-              _buildDetailRow(
-                icon: Icons.calendar_today_rounded,
-                label: 'Date & Time',
-                value: DateFormat('MMMM dd, yyyy • hh:mm a').format(transaction.date),
-                textColor: textColor,
-                textSecondary: textSecondary,
-              ),
-              if (transaction.description.isNotEmpty) ...[
-                Divider(height: 20, color: cardBorder),
-                _buildDetailRow(
-                  icon: Icons.notes_rounded,
-                  label: 'Description',
-                  value: transaction.description,
-                  textColor: textColor,
-                  textSecondary: textSecondary,
-                ),
-              ],
-            ],
-          ),
+            );
+          },
         ),
 
         const SizedBox(height: 24),
@@ -256,15 +289,19 @@ class TransactionDetailSheet extends StatelessWidget {
     required Color textSecondary,
   }) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: textSecondary),
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 18, color: textSecondary),
+        ),
         const SizedBox(width: 10),
         Text(
           label,
           style: TextStyle(fontSize: 13, color: textSecondary, fontWeight: FontWeight.w500),
         ),
-        const Spacer(),
-        Flexible(
+        const SizedBox(width: 16),
+        Expanded(
           child: Text(
             value,
             textAlign: TextAlign.right,
@@ -273,7 +310,6 @@ class TransactionDetailSheet extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: textColor,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

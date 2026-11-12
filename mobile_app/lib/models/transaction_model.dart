@@ -17,6 +17,12 @@ class TransactionModel {
   bool get isExpense => type == 'expense';
   bool get isTransfer => type == 'transfer';
 
+  /// Returns `date` if it carries a specific time of day; otherwise falls back to `createdAt`.
+  DateTime get effectiveTime =>
+      (date.hour == 0 && date.minute == 0 && date.second == 0)
+          ? createdAt
+          : date;
+
   TransactionModel({
     required this.id,
     required this.type,

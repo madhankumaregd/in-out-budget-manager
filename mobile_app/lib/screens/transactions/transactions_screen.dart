@@ -122,6 +122,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       context: context,
       transaction: tx,
       currencySymbol: currency,
+      fromAccountName: budget.getAccountName(tx.fromAccountId),
+      toAccountName: tx.toAccountId != null ? budget.getAccountName(tx.toAccountId) : null,
       onEdit: () => _showEditSheet(context, tx),
       onDelete: () async {
         try {
@@ -832,6 +834,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           );
         }
 
+        final dateGroups = _groupTransactionsByDate(txList);
         return RefreshIndicator(
           color: AppColors.primaryIndigo,
           onRefresh: () async {
@@ -841,20 +844,85 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: txList.length,
-            itemBuilder: (ctx, index) {
-              final tx = txList[index];
-              return TransactionTile(
-                transaction: tx,
+            itemCount: dateGroups.length,
+            itemBuilder: (ctx, groupIndex) {
+              final group = dateGroups[groupIndex];
+              return _buildDateGroupSection(
+                context: context,
+                budget: budget,
+                date: group.date,
+                transactions: group.items,
                 currency: currency,
-                onTap: () => _showTransactionDetails(context, tx, currency),
-                onEdit: () => _showTransactionDetails(context, tx, currency),
-                onDelete: () => _confirmDelete(context, tx),
+                textSecondaryColor: textSecondaryColor,
+                isFirst: groupIndex == 0,
               );
             },
           ),
         );
       },
+    );
+  }
+
+  List<({DateTime date, List<TransactionModel> items})> _groupTransactionsByDate(
+    List<TransactionModel> txList,
+  ) {
+    final Map<String, ({DateTime date, List<TransactionModel> items})> map = {};
+    for (final tx in txList) {
+      final key = DateFormat('yyyy-MM-dd').format(tx.date);
+      if (!map.containsKey(key)) {
+        map[key] = (
+          date: DateTime(tx.date.year, tx.date.month, tx.date.day),
+          items: <TransactionModel>[],
+        );
+      }
+      map[key]!.items.add(tx);
+    }
+    return map.values.toList();
+  }
+
+  Widget _buildDateGroupSection({
+    required BuildContext context,
+    required BudgetProvider budget,
+    required DateTime date,
+    required List<TransactionModel> transactions,
+    required String currency,
+    required Color textSecondaryColor,
+    required bool isFirst,
+  }) {
+    final formattedDate = DateFormat('MMM dd, yyyy').format(date);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            left: 4,
+            top: isFirst ? 2 : 12,
+            bottom: 8,
+          ),
+          child: Text(
+            formattedDate,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+              color: textSecondaryColor,
+            ),
+          ),
+        ),
+        ...transactions.map((tx) {
+          return TransactionTile(
+            transaction: tx,
+            fromAccountName: budget.getAccountName(tx.fromAccountId),
+            toAccountName: tx.toAccountId != null
+                ? budget.getAccountName(tx.toAccountId)
+                : null,
+            currency: currency,
+            onTap: () => _showTransactionDetails(context, tx, currency),
+            onEdit: () => _showTransactionDetails(context, tx, currency),
+            onDelete: () => _confirmDelete(context, tx),
+          );
+        }),
+      ],
     );
   }
 
@@ -953,14 +1021,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
               ),
 
-              // Transactions under this month
-              ...txList.map((tx) {
-                return TransactionTile(
-                  transaction: tx,
+              // Transactions under this month grouped by date
+              ..._groupTransactionsByDate(txList).asMap().entries.map((entry) {
+                return _buildDateGroupSection(
+                  context: context,
+                  budget: budget,
+                  date: entry.value.date,
+                  transactions: entry.value.items,
                   currency: currency,
-                  onTap: () => _showTransactionDetails(context, tx, currency),
-                  onEdit: () => _showTransactionDetails(context, tx, currency),
-                  onDelete: () => _confirmDelete(context, tx),
+                  textSecondaryColor: textSecondaryColor,
+                  isFirst: entry.key == 0,
                 );
               }),
             ],

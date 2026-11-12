@@ -35,7 +35,7 @@ class NotificationService {
       );
 
       await _localNotifications.initialize(
-        initSettings,
+        settings: initSettings,
         onDidReceiveNotificationResponse: (response) {
           // Can navigate to notification sheet or specific transaction if tapped
         },
@@ -147,8 +147,13 @@ class NotificationService {
 
       final notifId =
           id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
-      await _localNotifications.show(notifId, title, body, details,
-          payload: payload);
+      await _localNotifications.show(
+        id: notifId,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: payload,
+      );
     } catch (_) {
       // Safe fallback
     }

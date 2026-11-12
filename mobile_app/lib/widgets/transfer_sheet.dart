@@ -134,6 +134,18 @@ class _TransferSheetState extends State<TransferSheet> {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final inputBorder = isDark ? const Color(0xFF334155) : AppColors.dividerColor;
+    final dropdownBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final errorBg = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.14)
+        : const Color(0xFFFEF2F2);
+    final errorBorder = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.38)
+        : const Color(0xFFFECACA);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -142,9 +154,9 @@ class _TransferSheetState extends State<TransferSheet> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: errorBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECACA)),
+              border: Border.all(color: errorBorder),
             ),
             child: Row(
               children: [
@@ -163,11 +175,20 @@ class _TransferSheetState extends State<TransferSheet> {
         // ── Transfer From ──
         DropdownButtonFormField<String>(
           value: _fromAccountId,
-          decoration: const InputDecoration(labelText: 'From Account'),
+          dropdownColor: dropdownBg,
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            labelText: 'From Account',
+            filled: true,
+            fillColor: inputBg,
+          ),
           items: widget.accounts.map((acc) {
             return DropdownMenuItem(
               value: acc.id,
-              child: Text('${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})'),
+              child: Text(
+                '${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})',
+                style: TextStyle(color: textPrimary),
+              ),
             );
           }).toList(),
           onChanged: (val) => setState(() => _fromAccountId = val),
@@ -178,12 +199,23 @@ class _TransferSheetState extends State<TransferSheet> {
         // ── Transfer To ──
         DropdownButtonFormField<String>(
           value: _toAccountId,
-          decoration: const InputDecoration(labelText: 'To Account'),
+          dropdownColor: dropdownBg,
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            labelText: 'To Account',
+            filled: true,
+            fillColor: inputBg,
+          ),
           items: widget.accounts.map((acc) {
             return DropdownMenuItem(
               value: acc.id,
               enabled: acc.id != _fromAccountId,
-              child: Text('${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})'),
+              child: Text(
+                '${acc.name} (${widget.currencySymbol}${acc.balance.toStringAsFixed(2)})',
+                style: TextStyle(
+                  color: acc.id != _fromAccountId ? textPrimary : Colors.grey,
+                ),
+              ),
             );
           }).toList(),
           onChanged: (val) => setState(() => _toAccountId = val),
@@ -195,14 +227,16 @@ class _TransferSheetState extends State<TransferSheet> {
         TextField(
           controller: _amountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
           decoration: InputDecoration(
             labelText: 'Transfer Amount (${widget.currencySymbol})',
             prefixText: '${widget.currencySymbol} ',
-            prefixStyle: const TextStyle(
+            filled: true,
+            fillColor: inputBg,
+            prefixStyle: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: textPrimary,
             ),
           ),
         ),
@@ -217,22 +251,53 @@ class _TransferSheetState extends State<TransferSheet> {
               initialDate: _date,
               firstDate: DateTime(2020),
               lastDate: DateTime(2030),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: isDark
+                        ? const ColorScheme.dark(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Color(0xFF0F172A),
+                            onSurface: Colors.white,
+                          )
+                        : const ColorScheme.light(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Colors.white,
+                            onSurface: AppColors.textPrimary,
+                          ),
+                  ),
+                  child: child!,
+                );
+              },
             );
-            if (picked != null) setState(() => _date = picked);
+            if (picked != null) {
+              setState(() {
+                _date = DateTime(
+                  picked.year,
+                  picked.month,
+                  picked.day,
+                  _date.hour,
+                  _date.minute,
+                  _date.second,
+                );
+              });
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: inputBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.dividerColor),
+              border: Border.all(color: inputBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   DateFormatter.formatDate(_date),
-                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: 14, color: textPrimary),
                 ),
                 const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primaryIndigo),
               ],
@@ -245,9 +310,12 @@ class _TransferSheetState extends State<TransferSheet> {
         // ── Description ──
         TextField(
           controller: _descriptionController,
-          decoration: const InputDecoration(
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
             labelText: 'Note (Optional)',
             hintText: 'e.g. Monthly savings transfer...',
+            filled: true,
+            fillColor: inputBg,
           ),
         ),
 

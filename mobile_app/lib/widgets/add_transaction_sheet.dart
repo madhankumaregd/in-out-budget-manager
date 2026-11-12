@@ -484,8 +484,39 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               initialDate: _date,
               firstDate: DateTime(2020),
               lastDate: DateTime(2030),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: isDark
+                        ? const ColorScheme.dark(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Color(0xFF0F172A),
+                            onSurface: Colors.white,
+                          )
+                        : const ColorScheme.light(
+                            primary: AppColors.primaryIndigo,
+                            onPrimary: Colors.white,
+                            surface: Colors.white,
+                            onSurface: AppColors.textPrimary,
+                          ),
+                  ),
+                  child: child!,
+                );
+              },
             );
-            if (picked != null) setState(() => _date = picked);
+            if (picked != null) {
+              setState(() {
+                _date = DateTime(
+                  picked.year,
+                  picked.month,
+                  picked.day,
+                  _date.hour,
+                  _date.minute,
+                  _date.second,
+                );
+              });
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
