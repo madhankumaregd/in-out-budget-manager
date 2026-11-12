@@ -123,18 +123,20 @@ class _TransferSheetState extends State<TransferSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (widget.accounts.length < 2) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: const Text(
+        child: Text(
           'You need at least 2 accounts to make a transfer. Create another account first!',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+          ),
         ),
       );
     }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
     final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
     final inputBorder = isDark ? const Color(0xFF334155) : AppColors.dividerColor;

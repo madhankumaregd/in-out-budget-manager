@@ -263,9 +263,15 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: isDark
+                  ? AppColors.expenseRed.withValues(alpha: 0.14)
+                  : const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECACA)),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.expenseRed.withValues(alpha: 0.38)
+                    : const Color(0xFFFECACA),
+              ),
             ),
             child: Row(
               children: [

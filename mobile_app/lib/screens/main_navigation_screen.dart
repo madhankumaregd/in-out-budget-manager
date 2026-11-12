@@ -238,7 +238,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   _explosionKey.currentState?.explode(
                     origin: origin,
                     toDarkMode: !isDark,
-                    onTrigger: () => themeProv.toggleTheme(),
+                    onTrigger: () => themeProv.toggleTheme(context),
                   );
                 },
                 icon: Icon(
@@ -296,15 +296,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             child: Container(
               margin: const EdgeInsets.only(right: 16),
               child: PopupMenuButton<String>(
+                color: isDark ? const Color(0xFF0F172A) : Colors.white,
                 onSelected: (val) {
                   if (val == 'profile') {
                     setState(() => _currentIndex = 2); // Go to Accounts / Profile tab
                   } else if (val == 'theme') {
+                    if (_explosionKey.currentState?.isLocked == true) return;
                     final origin = Offset(MediaQuery.of(context).size.width - 35, 50);
                     _explosionKey.currentState?.explode(
                       origin: origin,
                       toDarkMode: !isDark,
-                      onTrigger: () => themeProv.toggleTheme(),
+                      onTrigger: () => themeProv.toggleTheme(context),
                     );
                   } else if (val == 'admin') {
                     Navigator.pushNamed(context, '/admin');
@@ -314,79 +316,98 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 },
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                  ),
                 ),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    enabled: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          auth.currentUser?.email ?? '',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        const Divider(height: 16),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(Icons.settings_outlined, size: 18, color: AppColors.primaryIndigo),
-                        SizedBox(width: 10),
-                        Text('Profile & Settings', style: TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'theme',
-                    child: Row(
-                      children: [
-                        Icon(
-                          isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                          size: 18,
-                          color: isDark ? const Color(0xFFA78BFA) : AppColors.primaryViolet,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                            style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                  if (isAdmin)
-                    const PopupMenuItem(
-                      value: 'admin',
-                      child: Row(
+                itemBuilder: (context) {
+                  final menuTextColor = isDark ? Colors.white : AppColors.textPrimary;
+                  return [
+                    PopupMenuItem(
+                      enabled: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.shield_outlined, size: 18, color: AppColors.primaryPurple),
-                          SizedBox(width: 10),
-                          Text('Admin Control Center', style: TextStyle(fontSize: 13)),
+                          Text(
+                            userName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: menuTextColor,
+                            ),
+                          ),
+                          Text(
+                            auth.currentUser?.email ?? '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade500,
+                            ),
+                          ),
+                          Divider(
+                            height: 16,
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                          ),
                         ],
                       ),
                     ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout_rounded, size: 18, color: AppColors.expenseRed),
-                        SizedBox(width: 10),
-                        Text('Logout', style: TextStyle(fontSize: 13, color: AppColors.expenseRed)),
-                      ],
+                    PopupMenuItem(
+                      value: 'profile',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.settings_outlined, size: 18, color: AppColors.primaryIndigo),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Profile & Settings',
+                            style: TextStyle(fontSize: 13, color: menuTextColor),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    PopupMenuItem(
+                      value: 'theme',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                            size: 18,
+                            color: isDark ? const Color(0xFFA78BFA) : AppColors.primaryViolet,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                            style: TextStyle(fontSize: 13, color: menuTextColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isAdmin)
+                      PopupMenuItem(
+                        value: 'admin',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.shield_outlined, size: 18, color: AppColors.primaryPurple),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Admin Control Center',
+                              style: TextStyle(fontSize: 13, color: menuTextColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    PopupMenuDivider(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                    ),
+                    const PopupMenuItem(
+                      value: 'logout',
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 18, color: AppColors.expenseRed),
+                          SizedBox(width: 10),
+                          Text('Logout', style: TextStyle(fontSize: 13, color: AppColors.expenseRed)),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
                 child: Container(
                   width: 38,
                   height: 38,

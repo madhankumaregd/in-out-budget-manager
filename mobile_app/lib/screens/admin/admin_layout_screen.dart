@@ -118,7 +118,7 @@ class _AdminLayoutScreenState extends State<AdminLayoutScreen> {
                           _explosionKey.currentState?.explode(
                             origin: origin,
                             toDarkMode: !isDark,
-                            onTrigger: () => themeProv.toggleTheme(),
+                            onTrigger: () => themeProv.toggleTheme(context),
                           );
                         },
                       ),

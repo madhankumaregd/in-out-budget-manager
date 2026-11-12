@@ -8,6 +8,13 @@ class ThemeProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
+  bool get isEffectiveDark {
+    if (_themeMode == ThemeMode.dark) return true;
+    if (_themeMode == ThemeMode.light) return false;
+    return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
+  }
+
   bool isDark(BuildContext context) {
     if (_themeMode == ThemeMode.dark) return true;
     if (_themeMode == ThemeMode.light) return false;
@@ -45,11 +52,9 @@ class ThemeProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> toggleTheme() async {
-    if (_themeMode == ThemeMode.dark) {
-      await setThemeMode(ThemeMode.light);
-    } else {
-      await setThemeMode(ThemeMode.dark);
-    }
+  Future<void> toggleTheme([BuildContext? context]) async {
+    final currentlyDark =
+        context != null ? isDark(context) : isEffectiveDark;
+    await setThemeMode(currentlyDark ? ThemeMode.light : ThemeMode.dark);
   }
 }

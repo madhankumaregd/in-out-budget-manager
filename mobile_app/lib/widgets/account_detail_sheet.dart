@@ -35,15 +35,22 @@ class AccountDetailSheet extends StatelessWidget {
       context: context,
       title: account.name,
       subtitle: '${account.type.replaceAll('_', ' ').toUpperCase()} ACCOUNT',
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: const Color(0xFFEEF2FF),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(Icons.account_balance_wallet_rounded,
-            color: AppColors.primaryIndigo, size: 24),
+      leading: Builder(
+        builder: (ctx) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.primaryIndigo.withValues(alpha: 0.2)
+                  : const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.account_balance_wallet_rounded,
+                color: AppColors.primaryIndigo, size: 24),
+          );
+        },
       ),
       child: AccountDetailSheet(
         account: account,
@@ -182,8 +189,14 @@ class AccountDetailSheet extends StatelessWidget {
                     label: const Text('Delete'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.expenseRed,
-                      side: const BorderSide(color: Color(0xFFFECACA)),
-                      backgroundColor: const Color(0xFFFEF2F2),
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.expenseRed.withValues(alpha: 0.38)
+                            : const Color(0xFFFECACA),
+                      ),
+                      backgroundColor: isDark
+                          ? AppColors.expenseRed.withValues(alpha: 0.14)
+                          : const Color(0xFFFEF2F2),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -202,16 +215,16 @@ class AccountDetailSheet extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.trending_up_rounded, color: AppColors.primaryPurple, size: 18),
-                SizedBox(width: 6),
+                const Icon(Icons.trending_up_rounded, color: AppColors.primaryPurple, size: 18),
+                const SizedBox(width: 6),
                 Text(
                   'Balance Trend (Past → Current)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textColor,
                   ),
                 ),
               ],
@@ -308,23 +321,23 @@ class AccountDetailSheet extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.history_rounded, color: AppColors.primaryIndigo, size: 18),
-                SizedBox(width: 6),
+                const Icon(Icons.history_rounded, color: AppColors.primaryIndigo, size: 18),
+                const SizedBox(width: 6),
                 Text(
                   'Recent Activity',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
             Text(
               '${accountTxs.length} records',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: textMuted),
             ),
           ],
         ),
@@ -337,7 +350,7 @@ class AccountDetailSheet extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               'No transactions recorded for this account yet.',
-              style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 13, color: textMuted),
             ),
           )
         else
@@ -357,7 +370,10 @@ class AccountDetailSheet extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: isIncome ? AppColors.incomeBg : AppColors.expenseBg,
+                      color: isDark
+                          ? (isIncome ? AppColors.incomeGreen : AppColors.expenseRed)
+                              .withValues(alpha: 0.18)
+                          : (isIncome ? AppColors.incomeBg : AppColors.expenseBg),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -383,7 +399,7 @@ class AccountDetailSheet extends StatelessWidget {
                         ),
                         Text(
                           DateFormatter.formatDate(t.date),
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                       ],
                     ),

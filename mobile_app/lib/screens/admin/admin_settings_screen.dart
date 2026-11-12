@@ -84,11 +84,17 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
   void _switchThemeWithExplosion(ThemeProvider theme, ThemeMode targetMode) {
     if (theme.themeMode == targetMode) return;
-    final explosion = ThemeExplosionEffect.of(context);
+    final wasDark = theme.isDark(context);
     final targetIsDark = targetMode == ThemeMode.dark ||
         (targetMode == ThemeMode.system &&
-            WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+    if (wasDark == targetIsDark) {
+      theme.setThemeMode(targetMode);
+      return;
+    }
+    final explosion = ThemeExplosionEffect.of(context);
     if (explosion != null) {
+      if (explosion.isLocked) return;
       final size = MediaQuery.of(context).size;
       explosion.explode(
         origin: Offset(size.width / 2, size.height * 0.28),

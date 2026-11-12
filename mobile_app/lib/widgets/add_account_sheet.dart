@@ -72,6 +72,17 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final dropdownBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final errorBg = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.14)
+        : const Color(0xFFFEF2F2);
+    final errorBorder = isDark
+        ? AppColors.expenseRed.withValues(alpha: 0.38)
+        : const Color(0xFFFECACA);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -80,9 +91,9 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: errorBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECACA)),
+              border: Border.all(color: errorBorder),
             ),
             child: Row(
               children: [
@@ -98,9 +109,12 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
         // ── Name ──
         TextField(
           controller: _nameController,
-          decoration: const InputDecoration(
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
             labelText: 'Account Name',
             hintText: 'e.g. HDFC Bank, ICICI, Wallet...',
+            filled: true,
+            fillColor: inputBg,
           ),
           autofocus: true,
         ),
@@ -110,11 +124,17 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
         // ── Type ──
         DropdownButtonFormField<String>(
           value: _selectedType,
-          decoration: const InputDecoration(labelText: 'Account Type'),
+          dropdownColor: dropdownBg,
+          style: TextStyle(color: textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            labelText: 'Account Type',
+            filled: true,
+            fillColor: inputBg,
+          ),
           items: AppConstants.accountTypes.map((t) {
             return DropdownMenuItem(
               value: t['id']!,
-              child: Text(t['label']!),
+              child: Text(t['label']!, style: TextStyle(color: textPrimary)),
             );
           }).toList(),
           onChanged: (val) {
@@ -128,9 +148,13 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
         TextField(
           controller: _balanceController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
           decoration: InputDecoration(
             labelText: 'Initial Balance (${widget.currencySymbol})',
             prefixText: '${widget.currencySymbol} ',
+            prefixStyle: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+            filled: true,
+            fillColor: inputBg,
           ),
         ),
 

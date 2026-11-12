@@ -688,19 +688,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   icon: Icons.light_mode_rounded,
                   isSelected: currentMode == ThemeMode.light,
                   activeColor: AppColors.primaryViolet,
-                  onSelect: (origin) {
-                    if (currentMode == ThemeMode.light) return;
-                    final effect = ThemeExplosionEffect.of(context);
-                    if (effect != null) {
-                      effect.explode(
-                        origin: origin,
-                        toDarkMode: false,
-                        onTrigger: () => themeProv.setThemeMode(ThemeMode.light),
-                      );
-                    } else {
-                      themeProv.setThemeMode(ThemeMode.light);
-                    }
-                  },
+                  onSelect: (origin) => _selectThemeMode(context, themeProv, ThemeMode.light, origin),
                   isDark: isDark,
                   textPrimaryColor: textPrimaryColor,
                 ),
@@ -712,19 +700,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   icon: Icons.dark_mode_rounded,
                   isSelected: currentMode == ThemeMode.dark,
                   activeColor: AppColors.primaryIndigo,
-                  onSelect: (origin) {
-                    if (currentMode == ThemeMode.dark) return;
-                    final effect = ThemeExplosionEffect.of(context);
-                    if (effect != null) {
-                      effect.explode(
-                        origin: origin,
-                        toDarkMode: true,
-                        onTrigger: () => themeProv.setThemeMode(ThemeMode.dark),
-                      );
-                    } else {
-                      themeProv.setThemeMode(ThemeMode.dark);
-                    }
-                  },
+                  onSelect: (origin) => _selectThemeMode(context, themeProv, ThemeMode.dark, origin),
                   isDark: isDark,
                   textPrimaryColor: textPrimaryColor,
                 ),
@@ -736,20 +712,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   icon: Icons.brightness_auto_rounded,
                   isSelected: currentMode == ThemeMode.system,
                   activeColor: AppColors.primaryPurple,
-                  onSelect: (origin) {
-                    if (currentMode == ThemeMode.system) return;
-                    final sysDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
-                    final effect = ThemeExplosionEffect.of(context);
-                    if (effect != null) {
-                      effect.explode(
-                        origin: origin,
-                        toDarkMode: sysDark,
-                        onTrigger: () => themeProv.setThemeMode(ThemeMode.system),
-                      );
-                    } else {
-                      themeProv.setThemeMode(ThemeMode.system);
-                    }
-                  },
+                  onSelect: (origin) => _selectThemeMode(context, themeProv, ThemeMode.system, origin),
                   isDark: isDark,
                   textPrimaryColor: textPrimaryColor,
                 ),
@@ -759,6 +722,36 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ],
       ),
     );
+  }
+
+  void _selectThemeMode(
+    BuildContext context,
+    ThemeProvider themeProv,
+    ThemeMode targetMode,
+    Offset origin,
+  ) {
+    if (themeProv.themeMode == targetMode) return;
+    final wasDark = themeProv.isDark(context);
+    final sysDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final targetIsDark = targetMode == ThemeMode.dark ||
+        (targetMode == ThemeMode.system && sysDark);
+
+    if (wasDark == targetIsDark) {
+      themeProv.setThemeMode(targetMode);
+      return;
+    }
+
+    final effect = ThemeExplosionEffect.of(context);
+    if (effect != null) {
+      if (effect.isLocked) return;
+      effect.explode(
+        origin: origin,
+        toDarkMode: targetIsDark,
+        onTrigger: () => themeProv.setThemeMode(targetMode),
+      );
+    } else {
+      themeProv.setThemeMode(targetMode);
+    }
   }
 
   Widget _themeOptionCard({
