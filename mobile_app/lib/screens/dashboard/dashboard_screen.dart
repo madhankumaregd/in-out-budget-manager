@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -401,20 +402,39 @@ class DashboardScreen extends StatelessWidget {
     Color textSecondaryColor,
     bool isDark,
   ) {
-    final recentData = monthlyData.length > 6
-        ? monthlyData.sublist(monthlyData.length - 6)
-        : monthlyData;
+    final now = DateTime.now();
+    final currentMonthShort = DateFormat('MMM').format(now);
+    final currentEntry = monthlyData.firstWhere(
+      (m) => m['month'] == currentMonthShort,
+      orElse: () => monthlyData.last,
+    );
 
-    double maxY = 0;
-    for (var m in recentData) {
-      if ((m['income'] as double) > maxY) maxY = m['income'] as double;
-      if ((m['expense'] as double) > maxY) maxY = m['expense'] as double;
+    final inc = (currentEntry['income'] as num?)?.toDouble() ?? 0.0;
+    final exp = (currentEntry['expense'] as num?)?.toDouble() ?? 0.0;
+
+    final rawMax = math.max(inc, exp);
+    final effectiveMax = rawMax <= 0 ? 1000.0 : rawMax;
+
+    // Compute clean, evenly-spaced Y-axis interval with headroom for labels
+    final rawStep = effectiveMax / 4.0;
+    final magnitude =
+        math.pow(10, (math.log(rawStep) / math.ln10).floor()).toDouble();
+    final normalized = rawStep / magnitude;
+    final double niceMult;
+    if (normalized <= 1.0) {
+      niceMult = 1.0;
+    } else if (normalized <= 2.0) {
+      niceMult = 2.0;
+    } else if (normalized <= 2.5) {
+      niceMult = 2.5;
+    } else if (normalized <= 5.0) {
+      niceMult = 5.0;
+    } else {
+      niceMult = 10.0;
     }
-    if (maxY == 0) maxY = 1000;
-    maxY = maxY * 1.35; // Generous headroom for adaptive bar values
-
-    final barWidth = recentData.length <= 3 ? 34.0 : (recentData.length <= 4 ? 28.0 : 22.0);
-    final barsSpace = recentData.length <= 3 ? 10.0 : 6.0;
+    final step = niceMult * magnitude;
+    final stepCount = math.max(4, (effectiveMax * 1.25 / step).ceil());
+    final maxY = step * stepCount;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -436,23 +456,25 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${DateFormat('MMMM yyyy').format(DateTime.now())} Summary',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textPrimaryColor,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${DateFormat('MMMM yyyy').format(now)} Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Monthly cash flow comparison',
-                    style: TextStyle(fontSize: 11, color: textSecondaryColor),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Monthly cash flow comparison',
+                      style: TextStyle(fontSize: 11, color: textSecondaryColor),
+                    ),
+                  ],
+                ),
               ),
               Row(
                 children: [
@@ -464,130 +486,294 @@ class DashboardScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            height: 250,
-            child: BarChart(
-              BarChartData(
-                maxY: maxY,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => const Color(0xFF1E293B),
-                    fitInsideHorizontally: true,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final monthName = recentData[group.x.toInt()]['month'];
-                      final isIncome = rodIndex == 0;
-                      final type = isIncome ? 'Income' : 'Expense';
-                      return BarTooltipItem(
-                        '$monthName\n$type: $currency${rod.toY.toStringAsFixed(0)}',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 42,
-                      getTitlesWidget: (val, meta) {
-                        if (val == 0) return const SizedBox();
-                        return Text(
-                          CurrencyFormatter.compact(val, symbol: ''),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade400,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (val, meta) {
-                        final idx = val.toInt();
-                        if (idx >= 0 && idx < recentData.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              recentData[idx]['month'],
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const yAxisWidth = 46.0;
+              const plotHeight = 200.0;
+              const topPadding = 26.0;
+              final plotWidth = math.max(120.0, constraints.maxWidth - yAxisWidth);
+
+              // 2.5x wider bars than original (34.0 * 2.5 = 85.0), safely bounded to avoid any collision
+              final barsSpace = (plotWidth * 0.14).clamp(24.0, 48.0);
+              final maxSafeBarWidth = (plotWidth - barsSpace - 24.0) / 2;
+              final barWidth = math.min(85.0, maxSafeBarWidth).clamp(48.0, 96.0);
+              final adaptiveFontSize = (barWidth * 0.18).clamp(11.0, 15.0);
+
+              final gridColor =
+                  isDark ? const Color(0xFF1E293B) : Colors.grey.shade200;
+              final labelColor =
+                  isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+              return TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 550),
+                curve: Curves.easeOutCubic,
+                builder: (context, animValue, _) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: plotHeight + topPadding,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Y-Axis Ticks
+                            SizedBox(
+                              width: yAxisWidth,
+                              height: plotHeight + topPadding,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: List.generate(stepCount, (i) {
+                                  final tickValue = step * (i + 1);
+                                  final bottomOffset =
+                                      (tickValue / maxY) * plotHeight;
+                                  return Positioned(
+                                    left: 0,
+                                    right: 6,
+                                    bottom: bottomOffset - 7,
+                                    child: Text(
+                                      CurrencyFormatter.compact(
+                                        tickValue,
+                                        symbol: '',
+                                      ),
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade400,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                    ),
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: recentData.asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final item = entry.value;
-                  final inc = item['income'] as double;
-                  final exp = item['expense'] as double;
-                  return BarChartGroupData(
-                    x: idx,
-                    barsSpace: barsSpace,
-                    barRods: [
-                      BarChartRodData(
-                        toY: inc,
-                        color: AppColors.incomeGreen,
-                        width: barWidth,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                        label: BarChartRodLabel(
-                          show: inc > 0,
-                          text: CurrencyFormatter.compact(inc, symbol: ''),
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-                          ),
-                          offset: const Offset(0, -18),
+                            // Plot Area with Gridlines + Bars
+                            Expanded(
+                              child: SizedBox(
+                                height: plotHeight + topPadding,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    // Horizontal gridlines
+                                    ...List.generate(stepCount, (i) {
+                                      final tickValue = step * (i + 1);
+                                      final bottomOffset =
+                                          (tickValue / maxY) * plotHeight;
+                                      return Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: bottomOffset,
+                                        child: Container(
+                                          height: 1,
+                                          color: gridColor,
+                                        ),
+                                      );
+                                    }),
+                                    // Baseline
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        height: 1,
+                                        color: gridColor,
+                                      ),
+                                    ),
+                                    // Centered non-colliding pair of bars
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      height: plotHeight + topPadding,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          _buildSingleSummaryBar(
+                                            label: 'Income',
+                                            value: inc,
+                                            currency: currency,
+                                            barColor: AppColors.incomeGreen,
+                                            barWidth: barWidth,
+                                            plotHeight: plotHeight,
+                                            maxY: maxY,
+                                            animValue: animValue,
+                                            fontSize: adaptiveFontSize,
+                                          ),
+                                          SizedBox(width: barsSpace),
+                                          _buildSingleSummaryBar(
+                                            label: 'Expense',
+                                            value: exp,
+                                            currency: currency,
+                                            barColor: AppColors.expenseRed,
+                                            barWidth: barWidth,
+                                            plotHeight: plotHeight,
+                                            maxY: maxY,
+                                            animValue: animValue,
+                                            fontSize: adaptiveFontSize,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      BarChartRodData(
-                        toY: exp,
-                        color: AppColors.expenseRed,
-                        width: barWidth,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                        label: BarChartRodLabel(
-                          show: exp > 0,
-                          text: CurrencyFormatter.compact(exp, symbol: ''),
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+                      const SizedBox(height: 10),
+                      // Bottom X-Axis Labels aligned accurately beneath each bar
+                      Row(
+                        children: [
+                          const SizedBox(width: yAxisWidth),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: barWidth,
+                                  child: Text(
+                                    '$currentMonthShort · Income',
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: labelColor,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: barsSpace),
+                                SizedBox(
+                                  width: barWidth,
+                                  child: Text(
+                                    '$currentMonthShort · Expense',
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: labelColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          offset: const Offset(0, -18),
-                        ),
+                        ],
                       ),
                     ],
                   );
-                }).toList(),
-              ),
-            ),
+                },
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleSummaryBar({
+    required String label,
+    required double value,
+    required String currency,
+    required Color barColor,
+    required double barWidth,
+    required double plotHeight,
+    required double maxY,
+    required double animValue,
+    required double fontSize,
+  }) {
+    final targetHeight = maxY > 0 ? (value / maxY) * plotHeight : 0.0;
+    final clampedHeight = value > 0 ? math.max(6.0, targetHeight) : 0.0;
+    final barHeight = clampedHeight * animValue;
+    final formattedCompact = CurrencyFormatter.compact(value, symbol: currency);
+    final fitsInside = barHeight >= 34.0;
+
+    return Tooltip(
+      triggerMode: TooltipTriggerMode.tap,
+      message: '$label: ${CurrencyFormatter.format(value, symbol: currency)}',
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      child: SizedBox(
+        width: barWidth,
+        height: plotHeight + 26.0,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
+          children: [
+            // Bar Body
+            if (barHeight > 0)
+              Container(
+                width: barWidth,
+                height: barHeight,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                ),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: fitsInside
+                    ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          formattedCompact,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+            // White text inside colored pill above bar when bar is too short (or 0)
+            if (!fitsInside)
+              Positioned(
+                bottom: barHeight + 6,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: barWidth),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: value > 0
+                          ? barColor
+                          : barColor.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        formattedCompact,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: (fontSize - 1.5).clamp(10.0, 13.0),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

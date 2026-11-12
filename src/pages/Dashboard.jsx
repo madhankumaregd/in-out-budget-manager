@@ -160,27 +160,37 @@ const Dashboard = () => {
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  const monthlyData = [];
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  
-  months.forEach((month, index) => {
-    const monthTransactions = transactions.filter((t) => {
-      if (!t.date) return false;
-      return new Date(t.date).getMonth() === index;
-    });
-    const income = monthTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    const expense = monthTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    if (income > 0 || expense > 0) {
-      monthlyData.push({ month, income, expense });
-    }
+  const now = new Date();
+  const currentMonthShort = now.toLocaleString("en-US", { month: "short" });
+  const currentMonthTitle = now.toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
   });
+
+  const currentMonthTransactions = transactions.filter((t) => {
+    if (!t.date) return false;
+    const d = new Date(t.date);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+
+  const currentMonthIncome = currentMonthTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const currentMonthExpense = currentMonthTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const monthlyData =
+    currentMonthIncome > 0 || currentMonthExpense > 0
+      ? [
+          {
+            month: currentMonthShort,
+            income: currentMonthIncome,
+            expense: currentMonthExpense,
+          },
+        ]
+      : [];
 
   const categoryData = transactions
     .filter((t) => t.type === "expense" && t.category)
@@ -199,12 +209,73 @@ const Dashboard = () => {
 
   const formatShortValue = (val) => {
     if (!val || val === 0) return "";
-    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 10000000) return `${(val / 10000000).toFixed(1)}Cr`;
+    if (val >= 100000) return `${(val / 100000).toFixed(1)}L`;
     if (val >= 1000) {
       const k = val / 1000;
-      return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+      return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
     }
-    return `${val}`;
+    return `${Math.round(val)}`;
+  };
+
+  const renderAdaptiveBarLabel = (barColor) => (props) => {
+    const { x = 0, y = 0, width = 0, height = 0, value = 0 } = props;
+    const displayVal = value > 0 ? `${currencySymbol}${formatShortValue(value)}` : `${currencySymbol}0`;
+    const fitsInside = height >= 34;
+    const baseFont = Math.min(15, Math.max(10, Math.round(width * 0.17)));
+    const approxTextWidth = displayVal.length * baseFont * 0.62;
+    const fontSize =
+      approxTextWidth > width - 10
+        ? Math.max(9, Math.floor(((width - 10) / (displayVal.length * 0.62))))
+        : baseFont;
+
+    if (fitsInside) {
+      return (
+        <text
+          x={x + width / 2}
+          y={y + height / 2}
+          fill="#FFFFFF"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={800}
+        >
+          {displayVal}
+        </text>
+      );
+    }
+
+    const pillFontSize = Math.min(13, fontSize);
+    const pillWidth = Math.min(width, Math.max(44, displayVal.length * pillFontSize * 0.68 + 14));
+    const pillHeight = 22;
+    const pillX = x + (width - pillWidth) / 2;
+    const pillY = Math.max(2, y - pillHeight - 6);
+
+    return (
+      <g>
+        <rect
+          x={pillX}
+          y={pillY}
+          width={pillWidth}
+          height={pillHeight}
+          rx={7}
+          ry={7}
+          fill={barColor}
+          fillOpacity={value > 0 ? 1 : 0.7}
+        />
+        <text
+          x={x + width / 2}
+          y={pillY + pillHeight / 2}
+          fill="#FFFFFF"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={pillFontSize}
+          fontWeight={800}
+        >
+          {displayVal}
+        </text>
+      </g>
+    );
   };
 
   if (loading) {
@@ -340,19 +411,22 @@ const Dashboard = () => {
               transition={{ delay: 0.5 }}
               className="bg-white rounded-2xl shadow-lg p-6"
             >
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Monthly Summary</h2>
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-gray-800">{currentMonthTitle} Summary</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Monthly cash flow comparison</p>
+              </div>
               <ResponsiveContainer width="100%" height={340}>
-                <BarChart data={monthlyData} barGap={8} margin={{ top: 25, right: 10, left: -10, bottom: 0 }}>
+                <BarChart data={monthlyData} barGap={28} margin={{ top: 34, right: 16, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                   <XAxis dataKey="month" tickLine={false} axisLine={{ stroke: '#E2E8F0' }} />
                   <YAxis tickLine={false} axisLine={{ stroke: '#E2E8F0' }} tickFormatter={formatShortValue} />
                   <Tooltip formatter={(value) => `${currencySymbol}${value.toLocaleString('en-IN')}`} />
                   <Legend />
-                  <Bar dataKey="income" name="Income" fill="#10B981" radius={[8, 8, 0, 0]} barSize={36} maxBarSize={48}>
-                    <LabelList dataKey="income" position="top" formatter={formatShortValue} fill="#059669" fontSize={11} fontWeight={700} />
+                  <Bar dataKey="income" name="Income" fill="#10B981" radius={[12, 12, 0, 0]} barSize={90} maxBarSize={110}>
+                    <LabelList dataKey="income" content={renderAdaptiveBarLabel("#10B981")} />
                   </Bar>
-                  <Bar dataKey="expense" name="Expense" fill="#EF4444" radius={[8, 8, 0, 0]} barSize={36} maxBarSize={48}>
-                    <LabelList dataKey="expense" position="top" formatter={formatShortValue} fill="#DC2626" fontSize={11} fontWeight={700} />
+                  <Bar dataKey="expense" name="Expense" fill="#EF4444" radius={[12, 12, 0, 0]} barSize={90} maxBarSize={110}>
+                    <LabelList dataKey="expense" content={renderAdaptiveBarLabel("#EF4444")} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

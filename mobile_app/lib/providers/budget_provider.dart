@@ -143,35 +143,31 @@ class BudgetProvider extends ChangeNotifier {
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
-  // ─── Monthly Summary for Charts ───
+  // ─── Monthly Summary for Charts (Current Month Only) ───
   List<Map<String, dynamic>> get monthlySummaryData {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    final currentYear = DateTime.now().year;
-    final List<Map<String, dynamic>> result = [];
+    final now = DateTime.now();
+    final currentMonthName = DateFormat('MMM').format(now);
+    final monthTxs = _transactions.where(
+      (t) => t.date.year == now.year && t.date.month == now.month,
+    );
+    final income = monthTxs
+        .where((t) => t.type == 'income')
+        .fold(0.0, (sum, t) => sum + t.amount);
+    final expense = monthTxs
+        .where((t) => t.type == 'expense')
+        .fold(0.0, (sum, t) => sum + t.amount);
 
-    for (int i = 0; i < months.length; i++) {
-      final monthTxs = _transactions.where(
-        (t) => t.date.year == currentYear && t.date.month == (i + 1),
-      );
-      final income = monthTxs
-          .where((t) => t.type == 'income')
-          .fold(0.0, (sum, t) => sum + t.amount);
-      final expense = monthTxs
-          .where((t) => t.type == 'expense')
-          .fold(0.0, (sum, t) => sum + t.amount);
-
-      if (income > 0 || expense > 0) {
-        result.add({
-          'month': months[i],
-          'income': income,
-          'expense': expense,
-        });
-      }
+    if (income == 0 && expense == 0) {
+      return [];
     }
-    return result;
+
+    return [
+      {
+        'month': currentMonthName,
+        'income': income,
+        'expense': expense,
+      }
+    ];
   }
   List<Map<String, dynamic>> get monthlySummaries => monthlySummaryData;
 
